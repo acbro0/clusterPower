@@ -11,8 +11,8 @@
 #' Users must specify the desired number of simulations, number of subjects per 
 #' cluster, number of clusters per arm, between-cluster variance, 
 #' two of the following: expected count in arm 1 (no clusters), expected count 
-#' in arm 2 (clustered arm), expected difference in counts between arms; significance level, 
-#' analytic method, and whether or not progress updates should be displayed 
+#' in arm 2 (clustered arm), expected difference in counts between arms; 
+#' significance level, and whether or not progress updates should be displayed 
 #' while the function is running.
 #' 
 #' 
@@ -24,8 +24,6 @@
 #' At least 2 of the following 3 arguments must be specified:
 #' @param c1 Expected outcome count in arm 1
 #' @param c2 Expected outcome count in arm 2
-#' @param c.diff Expected difference in outcome count between groups, defined as 
-#' c.diff = c1 - c2
 #' @param sigma_b_sq Between-cluster variance; defaults to 0. Accepts numeric.
 #' If between cluster variances differ between arms, the following must 
 #' also be specified:
@@ -55,8 +53,8 @@
 #' @param nofit Option to skip model fitting and analysis and return the simulated data.
 #' Defaults to \code{FALSE}.
 #' @param seed Option to set seed. Default is NA.
-#' @param opt Option to fit with a different optimizer (using the package \code{optimx}). 
-#' Defaults to L-BFGS-B.
+#' @param optmethod Option to fit with a different optimizer. 
+#' Defaults to \code{Nelder_Mead}.
 #' 
 #' @return A list with the following components
 #' \itemize{
@@ -98,8 +96,8 @@
 #' 
 #' @examples 
 #' \dontrun{
-#' irgtt.count.sim <- cps.irgtt.count(nsim = 100, nsubjects = c(500, 10), nclusters = 500, 
-#'                              c1 = 85, c2 = 450, sigma_b_sq2 = 0.25, 
+#' irgtt.count.sim <- cps.irgtt.count(nsim = 100, nsubjects = c(200, 10), nclusters = 10, 
+#'                              c1 = 5, c2 = 7, sigma_b_sq2 = 0.1, 
 #'                              family = 'poisson', analysis = 'poisson',
 #'                              alpha = 0.05, quiet = FALSE, allSimData = FALSE)
 #' }
@@ -114,7 +112,6 @@ cps.irgtt.count <-
            nclusters = NULL,
            c1 = NULL,
            c2 = NULL,
-           c.diff = NULL,
            sigma_b_sq = 0,
            sigma_b_sq2 = 0,
            family = 'poisson',
@@ -128,7 +125,7 @@ cps.irgtt.count <-
            timelimitOverride = TRUE,
            nofit = FALSE,
            seed = NA,
-           opt = "L-BFGS-B") {
+           optmethod = "Nelder_Mead") {
     if (sigma_b_sq == 0 & sigma_b_sq2 == 0) {
       warning(
         "sigma_b_sq in both arms is 0. This is equivalent to a t-test. Did you mean to
@@ -153,7 +150,6 @@ cps.irgtt.count <-
         nclusters = nclusters,
         c1 = c1,
         c2 = c2,
-        c.diff = c.diff,
         sigma_b_sq = sigma_b_sq,
         sigma_b_sq2 = sigma_b_sq2,
         family = family,
@@ -169,7 +165,7 @@ cps.irgtt.count <-
         nofit = nofit,
         seed = seed,
         irgtt = TRUE,
-        opt = opt
+        optmethod = optmethod
       )
     return(sim)
   }

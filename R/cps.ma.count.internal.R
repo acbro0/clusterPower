@@ -110,8 +110,7 @@
 #'
 #' @author Alexandria C. Sakrejda (\email{acbro0@@umass.edu}), Alexander R. Bogdan, and Ken Kleinman (\email{ken.kleinman@@gmail.com})
 #'
-#' @export
-
+#' @noRd
 cps.ma.count.internal <-
   function(nsim = 1000,
            str.nsubjects = NULL,
@@ -133,16 +132,15 @@ cps.ma.count.internal <-
            nofit = FALSE,
            opt = opt) {
     # Create vectors to collect iteration-specific values
-    simulated.datasets = list()
+    simulated.datasets <- list()
     goodopt <- opt
-    require("nloptr")
-    
+
     # Create NCLUSTERS, NARMS, from str.nsubjects
     narms = length(str.nsubjects)
     nclusters = sapply(str.nsubjects, length)
     
     # This container keeps track of how many models failed to converge
-    converged <- rep(NA, nsim)
+    converged <- rep(FALSE, nsim)
     
     # Create a container for the simulated.dataset and model output
     sim.dat = vector(mode = "list", length = nsim)
@@ -156,18 +154,16 @@ cps.ma.count.internal <-
     
     # Create indicators for treatment group & cluster for the sim.data output
     trt1 = list()
+    clust1 = list()
+    index <- 0
     for (arm in 1:length(str.nsubjects)) {
       trt1[[arm]] = list()
+      clust1[[arm]] =  list()
       for (cluster in 1:length(str.nsubjects[[arm]])) {
-        trt1[[arm]][[cluster]] = rep(arm, str.nsubjects[[arm]][[cluster]])
+        index <- index + 1
+        trt1[[arm]][[cluster]] = rep(arm, sum(str.nsubjects[[arm]][[cluster]]))
+        clust1[[arm]][[cluster]] = rep(index, sum(str.nsubjects[[arm]][[cluster]]))
       }
-    }
-    clust1 = list()
-    for (i in 1:sum(nclusters)) {
-      clust1[[i]] <- lapply(seq(1, sum(nclusters))[i],
-                            function(x) {
-                              rep.int(x, unlist(str.nsubjects)[i])
-                            })
     }
     
     #Alert the user if using t-distribution
@@ -259,10 +255,9 @@ cps.ma.count.internal <-
       return(sim.dat)
     }
     
-    require(foreach)
-    `%fun%` <- `%dopar%`
+    `%fun%` <- foreach::`%dopar%`
     if (is.na(cores)) {
-      `%fun%` <- `%do%`
+      `%fun%` <- foreach::`%do%`
     }
     
     #setup for parallel computing
@@ -277,7 +272,7 @@ cps.ma.count.internal <-
       ## Create clusters and initialize the progress bar
       cl <-
         parallel::makeCluster(rep("localhost", nc), type = "SOCK")
-      doSNOW::registerDoSNOW(cl)
+      doParallel::registerDoParallel(cl)
     }
     pb <- txtProgressBar(min = 1, max = nsim, style = 3)
     progress <- function(n)
@@ -292,7 +287,7 @@ cps.ma.count.internal <-
     avg.iter.time = as.numeric(difftime(Sys.time(), sim.start, units = 'secs'))
     time.est = avg.iter.time * (nsim - 1) / 60
     hr.est = time.est %/% 60
-    min.est = round(time.est %% 60, 0)
+    min.est = round(time.est %% 60, 3)
     #time limit override (for Shiny)
     if (min.est > 2 && timelimitOverride == FALSE) {
       stop(paste0("Estimated completion time: ",
@@ -333,8 +328,6 @@ cps.ma.count.internal <-
     
     if (method == "glmm") {
       # Fit the models
-      require(doParallel)
-      require(foreach)
       
       if (!is.na(cores) & quiet == FALSE) {
         message("Fitting models")
@@ -379,7 +372,7 @@ cps.ma.count.internal <-
         }
         my.mod <- foreach::foreach(
           i = 1:nsim,
-          .options.snow = opts,
+          .options.parallel = opts,
           .packages = c("lme4", "optimx", "nloptr"),
           .inorder = FALSE
         ) %fun% {
@@ -418,7 +411,7 @@ cps.ma.count.internal <-
         }
         my.mod <- foreach::foreach(
           i = 1:nsim,
-          .options.snow = opts,
+          .options.parallel = opts,
           .packages = c("lme4", "optimx", "nloptr"),
           .inorder = FALSE
         ) %fun% {
@@ -504,7 +497,7 @@ cps.ma.count.internal <-
       # get the overall p-values (>Chisq)
       model.compare <- foreach::foreach(
         i = 1:nsim,
-        .options.snow = opts,
+        .options.parallel = opts,
         .packages = "car",
         .inorder = FALSE
       ) %fun% {
@@ -524,7 +517,7 @@ cps.ma.count.internal <-
       model.values <-
         foreach::foreach(
           i = 1:nsim,
-          .options.snow = opts,
+          .options.parallel = opts,
           .packages = "car",
           .inorder = FALSE
         ) %fun% {
@@ -555,7 +548,7 @@ cps.ma.count.internal <-
       )
       time.est = avg.iter.time * (nsim - 1) / 60
       hr.est = time.est %/% 60
-      min.est = round(time.est %% 60, 0)
+      min.est = round(time.est %% 60, 3)
       
       #time limit override (for Shiny)
       if (min.est > 2 && timelimitOverride == FALSE) {
@@ -587,7 +580,6 @@ cps.ma.count.internal <-
           prog.bar$tick(0)
         }
       }
-      require(foreach)
       if (!is.na(cores) & quiet == FALSE) {
         message("Fitting models")
       }
@@ -600,7 +592,7 @@ cps.ma.count.internal <-
       if (family == "poisson") {
         my.mod <- foreach::foreach(
           i = 1:nsim,
-          .options.snow = opts,
+          .options.parallel = opts,
           .packages = "geepack",
           .inorder = FALSE
         ) %fun% {
@@ -615,7 +607,7 @@ cps.ma.count.internal <-
       if (family == "quasipoisson") {
         my.mod <- foreach::foreach(
           i = 1:nsim,
-          .options.snow = opts,
+          .options.parallel = opts,
           .packages = "geepack",
           .inorder = FALSE
         ) %fun% {
@@ -627,6 +619,13 @@ cps.ma.count.internal <-
           )
         }
       }
+      
+      # check for gee convergence
+      for (i in 1:length(my.mod)){
+        converged[i] <- ifelse(summary(my.mod[[i]])$error == 0, TRUE, FALSE)
+      }
+      
+      
       if (!is.na(cores) & quiet == FALSE) {
         message("Performing null model comparisons")
       }
@@ -675,7 +674,7 @@ cps.ma.count.internal <-
         "estimates" = model.values,
         "model.comparisons" = model.compare,
         "converged" = unlist(converged),
-        "sim.data" = data.frame(trt, clust, sim.dat),
+        "sim.data" = data.frame(sim.dat),
         "optimizer algorithm" = goodopt
       )
     } else {

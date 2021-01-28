@@ -13,7 +13,7 @@
 #' cluster, number of clusters per arm, expected means for the 
 #' arm 1 and arm 2 (respectively), two of the following: ICC, 
 #' within-cluster variance, or between-cluster variance; significance level, 
-#' analytic method, progress updates, and simulated data set output may also be 
+#' progress updates, and simulated data set output may also be 
 #' specified.
 #' 
 #' 
@@ -37,18 +37,17 @@
 #' calculated power is returned regardless of value.
 #' @param timelimitOverride Logical. When FALSE, stops execution if the estimated completion time
 #' is more than 2 minutes. Defaults to TRUE.
+#' @param sigma_b_sq Between-cluster variance for clusters in arm 2. Defaults to 0.
+#' @param nofit Option to skip model fitting and analysis and return the simulated data.
+#' Defaults to \code{FALSE}.
 #' 
 #' At least 2 of the following must be specified:
-#' @param ICC Intra-cluster correlation coefficient; accepts a value between 0 - 1
 #' @param sigma_sq Within-cluster variance; accepts numeric
-#' @param sigma_b_sq Between-cluster variance; defaults to 0. Accepts numeric.
-#' If clusters differ between arms, at least 1 of the following 
-#' must be specified: ICC2, sigma_sq2.
 #' @param ICC2 Intra-cluster correlation coefficient for clusters in arm 2
 #' @param sigma_sq2 Within-cluster variance for clusters in arm 2
 #' @param sigma_b_sq2 Between-cluster variance for clusters in arm 2.
-#' @param nofit Option to skip model fitting and analysis and return the simulated data.
-#' Defaults to \code{FALSE}.
+#' 
+#' 
 #' 
 #' @return A list with the following components:
 #' \itemize{
@@ -87,7 +86,7 @@
 #'                        nclusters = 8, mu = 1.1, mu2 = 1.5,
 #'                         sigma_sq = 0.1, sigma_sq2 = 0.2, 
 #'                         sigma_b_sq2 = 0.1, alpha = 0.05,
-#'                         quiet = FALSE, allSimData = FALSE)
+#'                         quiet = FALSE, allSimData = TRUE, seed = 123)
 #' }
 #' @author Alexandria C. Sakrejda (\email{acbro0@@umass.edu})
 #' @author Alexander R. Bogdan
@@ -103,11 +102,10 @@ cps.irgtt.normal <-
            nclusters = NA,
            mu = NA,
            mu2 = NA,
-           ICC = NA,
            sigma_sq = NA,
            sigma_b_sq = 0,
-           ICC2 = ICC,
-           sigma_sq2 = sigma_sq,
+           ICC2 = NA,
+           sigma_sq2 = NA,
            sigma_b_sq2 = 0,
            alpha = 0.05,
            quiet = FALSE,
@@ -133,7 +131,7 @@ cps.irgtt.normal <-
     if (sigma_b_sq != 0 & sigma_b_sq2 != 0) {
       warning("sigma_b_sq is not zero for either arm. Did you want to use cps.normal()?")
     }
-    if (sigma_b_sq != 0 & sigma_b_sq2 == 0) {
+    if (sigma_b_sq != 0) {
       stop("Non-clustered group must be the reference group.")
     }
     if (sigma_b_sq2 != 0) {
@@ -146,7 +144,6 @@ cps.irgtt.normal <-
       nclusters = nclust,
       mu = mu,
       mu2 = mu2,
-      ICC = ICC,
       ICC2 = ICC2,
       sigma_sq = sigma_sq,
       sigma_sq2 = sigma_sq2,

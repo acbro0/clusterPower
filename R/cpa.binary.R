@@ -1,5 +1,8 @@
 #' Analytic power calculations for parallel arm cluster-randomized trials with binary outcomes
 #'
+#' @description 
+#' \loadmathjax
+#' 
 #' Compute the power, number of clusters needed, number of subjects per cluster needed, 
 #' or other key parameters for a parallel cluster randomized trial with a 
 #' binary outcome.
@@ -29,7 +32,8 @@
 #'  this setting.
 #' 
 #'  Unlike in the case of normal distributed outcomes (cpa.normal), the ICC refers neither to 
-#'  any natural parameter of a data generating model nor to any function of its parameters.   For this reason we do not offer the user a option to input
+#'  any natural parameter of a data generating model nor to any function of its parameters.   
+#'  For this reason we do not offer the user a option to input
 #'  the variance between the clusters.  If you prefer to use that input, we suggest using the
 #'  cps.binary function.
 #' 
@@ -39,7 +43,7 @@
 #'   errors from it, notably about inability to bracket the root when
 #'   invalid arguments are given.  This generally means that no solution exists for which the 
 #'   omitted parameter and the supplied parameters fulfill the equation.  In particular, the desired
-#'   power may not be acheiveable with any number of subjects or clusters.
+#'   power may not be achievable with any number of subjects or clusters.
 #'   
 #' @section Testing details:
 #' This function has been verified against reference values from the NIH's GRT
@@ -58,16 +62,18 @@
 #' @param p2 The proportion with the outcome in the other condition, a numeric between 0-1.
 #' @param ICC The intraclass correlation, a numeric between 0-1.  (See Details, below.)
 #' @param pooled Logical indicating if pooled standard error should be used.
-#' @param p1inc Logical indicating if p1 is expected to be greater than p2.  Only needed if \code{p1} or \code{p2} is \code{NA}.
+#' @param p1inc Logical indicating if p1 is expected to be greater than p2.  
+#' Only needed if \code{p1} or \code{p2} is \code{NA}.
 #' @param tol Numerical tolerance used in root finding. The default provides
 #'   at least four significant digits.
 #' @param tdist If \code{TRUE} use t distribution with df equal to (nclusters - 2).  
 #' Otherwise use the normal distribution. Default is TRUE.
 #'   
 #' @return
-#' The computed value of the NA parameter (among \code{alpha}, \code{power}, \code{nclusters}, \code{nsubjects},
+#' The computed value of the NA parameter (among \code{alpha}, \code{power}, 
+#'   \code{nclusters}, \code{nsubjects},
 #'   \code{CV}, \code{p1}, \code{p2}, and \code{ICC}) needed to satisfy the power and 
-#' sample size equation.
+#'   sample size equation.
 #'
 #' @examples 
 #' # Find the number of clusters per condition needed for a trial with alpha = .05, 
@@ -81,12 +87,14 @@
 #' # condition should be used.
 #' 
 #' # Find the minimum detectable p2 > p1, given 38 clusters per condition, 10 
-#' # observations per cluster no variation in cluster size, ICC of 0.1, and probability of 
-#' # .1 in condition 2, with power of .8.
+#' # observations per cluster no variation in cluster size, ICC of 0.1, and 
+#' # probability of .1 in condition 2, with power of .8.
 #' \dontrun{
-#' cpa.binary(power = 0.08, nsubjects = 10, nclusters = 38, p1 = 0.1, p2 = NA, ICC = 0.1, p1inc = FALSE)
+#' cpa.binary(power = 0.08, nsubjects = 10, nclusters = 38,
+#'   p1 = 0.1, p2 = NA, ICC = 0.1, p1inc = FALSE)
 #' }
-#' # The result shows that p2 greater than 0.198922 can be detected with at least 80% power.
+#' # The result shows that p2 greater than 0.198922 can be detected with at 
+#' # least 80% power.
 #' 
 #' @references Donner A, Klar N. Design and Analysis of Cluster Randomization
 #' Trials in Health Research. London; Arnold; 2000.
@@ -105,7 +113,7 @@ cpa.binary <- function(alpha = 0.05,
                        CV = 0,
                        p1 = NA,
                        p2 = NA,
-                       ICC = NA,
+                       ICC = 0.05,
                        pooled = FALSE,
                        p1inc = TRUE,
                        tdist = TRUE,

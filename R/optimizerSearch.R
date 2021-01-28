@@ -1,25 +1,23 @@
 #' Power simulations for cluster-randomized trials: find an optimizer.
 #'
-#' This function can be called by some of the clusterPower functions to search 
-#' for an optimizer that does not produce convergence errors. 
-#' 
+#' This function can be called by some of the clusterPower functions to search
+#' for an optimizer that does not produce convergence errors.
+#'
 #' @author Alexandria C. Sakrejda (\email{acbro0@@umass.edu}, and Joshua Nugent.
 
 #' @param model a lme4 or glmer model
-#' 
+#'
 #' @return A string
 #' \describe{
 #'   \item{goodopt}{The name of the first optimizer tested that showed convergence.}
 #' }
-#' 
-#' @export
-
+#'
+#' @noRd
 
 optimizerSearch <- function(model) {
   if (isTRUE(missing(model))) {
     message("Error: model does not exist.")
   }
-  require(optimx)
   diff_optims <- try(lme4::allFit(
     model,
     maxfun = 1e5,

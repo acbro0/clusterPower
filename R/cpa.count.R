@@ -1,5 +1,8 @@
 #' Analytic power calculations for parallel arm cluster-randomized trials with count outcomes
 #'
+#' @description 
+#' \loadmathjax
+#'
 #' Compute the power, number of clusters needed, number of subjects per cluster 
 #' needed, or other key parameters for a simple parallel cluster randomized 
 #' trial with a count outcome.
@@ -38,7 +41,7 @@
 #'   errors from it, notably about inability to bracket the root when
 #'   invalid arguments are given.  This generally means that no solution exists for which the 
 #'   omitted parameter and the supplied parameters fulfill the equation.  In particular, the desired
-#'   power may not be acheiveable with any number of subjects or clusters.
+#'   power may not be achievable with any number of subjects or clusters.
 #'   
 #' @section Testing details:
 #' This function has been verified against reference values from 

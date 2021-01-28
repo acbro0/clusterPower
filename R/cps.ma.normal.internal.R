@@ -94,10 +94,7 @@
 #'                               poor.fit.override = FALSE,
 #'                               optmethod = "nlm")
 #'                               }
-#' @export
-
-
-
+#' @noRd
 cps.ma.normal.internal <-
   function(nsim = 1000,
            str.nsubjects = NULL,
@@ -118,7 +115,7 @@ cps.ma.normal.internal <-
            return.all.models = FALSE,
            timelimitOverride = TRUE) {
     # Create vectors to collect iteration-specific values
-    simulated.datasets = list()
+    simulated.datasets <- list()
     
     # Create NCLUSTERS, NARMS, from str.nsubjects
     narms = length(str.nsubjects)
@@ -133,7 +130,7 @@ cps.ma.normal.internal <-
     )
     
     # This container keeps track of how many models failed to converge
-    converge.vector <- rep(TRUE, nsim)
+    converge.vector <- rep(FALSE, nsim)
     
     # Create a container for the simulated.dataset and model output
     sim.dat = vector(mode = "list", length = nsim)
@@ -146,20 +143,19 @@ cps.ma.normal.internal <-
     }
     
     # Create indicators for treatment group & cluster for the sim.data output
-    trt = list()
+    trt1 = list()
+    clust1 = list()
+    index <- 0
     for (arm in 1:length(str.nsubjects)) {
-      trt[[arm]] = list()
+      trt1[[arm]] = list()
+      clust1[[arm]] =  list()
       for (cluster in 1:length(str.nsubjects[[arm]])) {
-        trt[[arm]][[cluster]] = rep(arm, str.nsubjects[[arm]][[cluster]])
+        index <- index + 1
+        trt1[[arm]][[cluster]] = rep(arm, sum(str.nsubjects[[arm]][[cluster]]))
+        clust1[[arm]][[cluster]] = rep(index, sum(str.nsubjects[[arm]][[cluster]]))
       }
     }
-    clust = list()
-    for (i in 1:sum(nclusters)) {
-      clust[[i]] <- lapply(seq(1, sum(nclusters))[i],
-                           function(x) {
-                             rep.int(x, unlist(str.nsubjects)[i])
-                           })
-    }
+    
     #Alert the user if using t-distribution
     if (tdist == TRUE) {
       print("using t-distribution because tdist = TRUE")
@@ -178,18 +174,16 @@ cps.ma.normal.internal <-
     }
     
     # Create simulation loop
-    #   require(foreach)
-    #   foreach::foreach(i = 1:nsim, .packages = c("optimx")) %do% {
     for (i in 1:nsim) {
       sim.dat[[i]] = data.frame(y = NA,
-                                trt = as.factor(unlist(trt)),
-                                clust = as.factor(unlist(clust)))
+                                trt = as.factor(unlist(trt1)),
+                                clust = as.factor(unlist(clust1)))
       # Generate between-cluster effects for non-treatment and treatment
       if (tdist == TRUE) {
         randint = mapply(function(n, df)
           stats::rt(n, df = df),
           n = nclusters,
-          df = Inf)
+          df = sum(nclusters) - narms)
       } else {
         randint = mapply(
           function(nc, s, mu)
@@ -227,13 +221,13 @@ cps.ma.normal.internal <-
       return(sim.dat)
     }
     
-    # status message
-    if (quiet == FALSE && i == 1) {
-        message(paste0('Begin simulations :: Start Time: ', Sys.time()))
-    }
-    
     for (i in 1:nsim) {
       # Update simulation progress information
+      # status message
+      if (quiet == FALSE && i == 1) {
+        message(paste0('Begin simulations :: Start Time: ', Sys.time()))
+      }
+      
       y <- sim.dat[[i]][["y"]]
       trt <- sim.dat[[i]][["trt"]]
       clust <- sim.dat[[i]][["clust"]]
@@ -242,8 +236,8 @@ cps.ma.normal.internal <-
       prog.bar$update(i / nsim)
       Sys.sleep(1 / 100)
       
-      if (i == 1){
-      start.time = Sys.time()
+      if (i == 1) {
+        start.time = Sys.time()
       }
       
       # trt and clust are re-coded as trt2 and clust2 to work nicely with lme. This can be changed later.
@@ -257,38 +251,45 @@ cps.ma.normal.internal <-
               optmethod != "nlminb" && optmethod != "auto") {
             stop("optmethod must be either nlm or nlminb for this model type.")
           }
-          my.mod <-
-            try(nlme::lme(
-              y ~ as.factor(trt2),
-              random = ~ 1 + as.factor(trt2) | clust2,
-              weights = nlme::varIdent(form = ~ 1 |
-                                         as.factor(trt2)),
-              method = "ML",
-              control = nlme::nlmeControl(
-                opt = optmethod,
-                niterEM = 100,
-                msMaxIter = 100
-              )
-            ))
-          model.values[[i]] <-  try(summary(my.mod)$tTable)
-          # get the overall p-values (>Chisq)
-          null.mod <-
-            try(nlme::lme(
-              y ~ 1,
-              random = ~ 1 + as.factor(trt2) | clust2,
-              weights = nlme::varIdent(form = ~ 1 |
-                                         as.factor(trt2)),
-              method = "ML",
-              control = nlme::nlmeControl(
-                opt = optmethod,
-                niterEM = 100,
-                msMaxIter = 100
-              )
-            ))
-          converge.vector[i] <-
-            ifelse(isTRUE(class(my.mod) == "try-error"), FALSE, TRUE)
+          
+          counter <- 0
+          while (counter < 2 & converge.vector[i] == FALSE) {
+            my.mod <-
+              try(nlme::lme(
+                y ~ as.factor(trt2),
+                random = ~ 1 + as.factor(trt2) | clust2,
+                weights = nlme::varIdent(form = ~ 1 |
+                                           as.factor(trt2)),
+                method = "ML",
+                control = nlme::nlmeControl(
+                  opt = optmethod,
+                  niterEM = 100,
+                  msMaxIter = 100
+                )
+              ))
+            model.values[[i]] <-  try(summary(my.mod)$tTable)
+            # get the overall p-values (>Chisq)
+            null.mod <-
+              try(nlme::lme(
+                y ~ 1,
+                random = ~ 1 + as.factor(trt2) | clust2,
+                weights = nlme::varIdent(form = ~ 1 |
+                                           as.factor(trt2)),
+                method = "ML",
+                control = nlme::nlmeControl(
+                  opt = optmethod,
+                  niterEM = 100,
+                  msMaxIter = 100
+                )
+              ))
+            converge.vector[i] <-
+              ifelse(isTRUE(class(my.mod) == "try-error"), FALSE, TRUE)
+            counter <- counter + 1
+          } # end of while loop
+          
           if (poor.fit.override == FALSE) {
-            if (sum(converge.vector == FALSE, na.rm = TRUE) > (nsim * .25)) {
+            if (sum(converge.vector[1:i] == FALSE, na.rm = TRUE) > (nsim * .25) &
+                i > 50) {
               stop("more than 25% of simulations are singular fit: check model specifications")
             }
           }
@@ -302,34 +303,40 @@ cps.ma.normal.internal <-
                              REML = FALSE,
                              data = sim.dat[[1]])
             if (optmethod == "auto") {
-              require("optimx")
               goodopt <- optimizerSearch(my.mod)
               
             } else {
               goodopt <- optmethod
             }
           }
-          my.mod <-
-            lmerTest::lmer(
-              y ~ trt + (1 + as.factor(trt) | clust),
-              REML = FALSE,
-              data = sim.dat[[i]],
-              lme4::lmerControl(
-                optimizer = "nloptwrap",
-                optCtrl  = list(algorithm = goodopt)
+          
+          counter <- 0
+          while (counter < 2 & converge.vector[i] == FALSE) {
+            my.mod <-
+              lmerTest::lmer(
+                y ~ trt + (1 + as.factor(trt) | clust),
+                REML = FALSE,
+                data = sim.dat[[i]],
+                lme4::lmerControl(
+                  optimizer = "nloptwrap",
+                  optCtrl  = list(algorithm = goodopt)
+                )
               )
-            )
-          # get the overall p-values (>Chisq)
-          null.mod <-
-            update.formula(my.mod, y ~ 1 + (1 + as.factor(trt) |
-                                              clust))
-          # option to stop the function early if fits are singular
-          converge.vector[i] <-
-            ifelse(is.null(my.mod@optinfo$conv$lme4$messages),
-                   TRUE,
-                   FALSE)
+            # get the overall p-values (>Chisq)
+            null.mod <-
+              update.formula(my.mod, y ~ 1 + (1 + as.factor(trt) |
+                                                clust))
+            # option to stop the function early if fits are singular
+            converge.vector[i] <-
+              ifelse(is.null(my.mod@optinfo$conv$lme4$messages),
+                     TRUE,
+                     FALSE)
+            counter <- counter + 1
+          } # end of while loop
+          
           if (poor.fit.override == FALSE) {
-            if (sum(converge.vector == FALSE, na.rm = TRUE) > (nsim * .25)) {
+            if (sum(converge.vector[1:i] == FALSE, na.rm = TRUE) > (nsim * .25) &
+                i > 50) {
               stop("more than 25% of simulations are singular fit: check model specifications")
             }
           }
@@ -342,10 +349,27 @@ cps.ma.normal.internal <-
           if (optmethod != "nlm" && optmethod != "nlminb") {
             stop("optmethod must be either nlm or nlminb for this model type.")
           }
-          my.mod <-
-            try(nlme::lme(
-              y ~ as.factor(trt2),
-              random = ~ 1 | clust2,
+          
+          counter <- 0
+          while (counter < 2 & converge.vector[i] == FALSE) {
+            my.mod <-
+              try(nlme::lme(
+                y ~ as.factor(trt2),
+                random = ~ 1 | clust2,
+                weights = nlme::varIdent(form = ~ 1 |
+                                           as.factor(trt2)),
+                method = "ML",
+                control = nlme::nlmeControl(
+                  opt = optmethod,
+                  niterEM = 100,
+                  msMaxIter = 100
+                )
+              ))
+            model.values[[i]] <-  try(summary(my.mod)$tTable)
+            # get the overall p-values (>Chisq)
+            null.mod <- try(nlme::lme(
+              y ~ 1,
+              random =  ~ 1 | clust2,
               weights = nlme::varIdent(form = ~ 1 |
                                          as.factor(trt2)),
               method = "ML",
@@ -355,24 +379,14 @@ cps.ma.normal.internal <-
                 msMaxIter = 100
               )
             ))
-          model.values[[i]] <-  try(summary(my.mod)$tTable)
-          # get the overall p-values (>Chisq)
-          null.mod <- try(nlme::lme(
-            y ~ 1,
-            random =  ~ 1 | clust2,
-            weights = nlme::varIdent(form = ~ 1 |
-                                       as.factor(trt2)),
-            method = "ML",
-            control = nlme::nlmeControl(
-              opt = optmethod,
-              niterEM = 100,
-              msMaxIter = 100
-            )
-          ))
-          converge.vector[i] <-
-            ifelse(isTRUE(class(my.mod) == "try-error"), FALSE, TRUE)
+            converge.vector[i] <-
+              ifelse(isTRUE(class(my.mod) == "try-error"), FALSE, TRUE)
+            counter <- counter + 1
+          } #end of while loop
+          
           if (poor.fit.override == FALSE) {
-            if (sum(converge.vector == FALSE, na.rm = TRUE) > (nsim * .25)) {
+            if (sum(converge.vector[1:i] == FALSE, na.rm = TRUE) > (nsim * .25) &
+                i > 50) {
               stop("more than 25% of simulations are singular fit: check model specifications")
             }
           }
@@ -384,30 +398,35 @@ cps.ma.normal.internal <-
             my.mod <- lmerTest::lmer(y ~ trt + (1 | clust), REML = FALSE,
                                      data = sim.dat[[1]])
             if (optmethod == "auto") {
-              require("optimx")
               goodopt <- optimizerSearch(my.mod)
             } else {
               goodopt <- optmethod
             }
           }
-          my.mod <-  lmerTest::lmer(
-            y ~ trt + (1 | clust),
-            REML = FALSE,
-            data = sim.dat[[i]],
-            lme4::lmerControl(
-              optimizer = "nloptwrap",
-              optCtrl  = list(algorithm = goodopt)
+          counter <- 0
+          while (counter < 2 & converge.vector[i] == FALSE) {
+            my.mod <-  lmerTest::lmer(
+              y ~ trt + (1 | clust),
+              REML = FALSE,
+              data = sim.dat[[i]],
+              lme4::lmerControl(
+                optimizer = "nloptwrap",
+                optCtrl  = list(algorithm = goodopt)
+              )
             )
-          )
-          # get the overall p-values (>Chisq)
-          null.mod <- update.formula(my.mod, y ~ 1 + (1 | clust))
-          # option to stop the function early if fits are singular
-          converge.vector[i] <-
-            ifelse(is.null(my.mod@optinfo$conv$lme4$messages),
-                   TRUE,
-                   FALSE)
+            # get the overall p-values (>Chisq)
+            null.mod <- update.formula(my.mod, y ~ 1 + (1 | clust))
+            # option to stop the function early if fits are singular
+            converge.vector[i] <-
+              ifelse(is.null(my.mod@optinfo$conv$lme4$messages),
+                     TRUE,
+                     FALSE)
+            counter <- counter + 1
+          } #end of while loop
+          
           if (poor.fit.override == FALSE) {
-            if (sum(converge.vector == FALSE, na.rm = TRUE) > (nsim * .25)) {
+            if (sum(converge.vector[1:i] == FALSE, na.rm = TRUE) > (nsim * .25) &
+                i > 50) {
               stop("more than 25% of simulations are singular fit: check model specifications")
             }
           }
@@ -416,9 +435,9 @@ cps.ma.normal.internal <-
         #time limit override (for Shiny)
         if (i == 10) {
           avg.iter.time = as.numeric(difftime(Sys.time(), start.time, units = 'secs'))
-          time.est = (avg.iter.time/10) * (nsim - 10) / 60
+          time.est = (avg.iter.time / 10) * (nsim - 10) / 60
           hr.est = time.est %/% 60
-          min.est = round(time.est %% 60, 0)
+          min.est = round(time.est %% 60, 3)
           if (min.est > 2 && timelimitOverride == FALSE) {
             stop(paste0(
               "Estimated completion time: ",
@@ -431,7 +450,7 @@ cps.ma.normal.internal <-
         }
         
         model.values[[i]] <-  summary(my.mod)
-      } #end of loop
+      } #end of glmm options
       
       
       
@@ -454,6 +473,9 @@ cps.ma.normal.internal <-
                                    id = clust,
                                    corstr = "exchangeable")
         model.values[[i]] = summary(my.mod)
+        # check for gee convergence
+        converge.vector[i] <-
+          ifelse(summary(my.mod)$error == 0, TRUE, FALSE)
       }
       
       
@@ -490,7 +512,7 @@ cps.ma.normal.internal <-
         total.est = as.numeric(difftime(Sys.time(), start.time, units = 'secs'))
         hr.est = total.est %/% 3600
         min.est = total.est %/% 60
-        sec.est = round(total.est %% 60, 0)
+        sec.est = round(total.est %% 60, 3)
         message(
           paste0(
             "Simulations Complete! Time Completed: ",
@@ -505,7 +527,7 @@ cps.ma.normal.internal <-
           )
         )
       }
-    }
+    } # end of loop
     
     ## Output objects
     if (all.sim.data == TRUE) {

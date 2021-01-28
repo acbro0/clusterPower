@@ -112,7 +112,7 @@
 #' string ("all"), NA (no parallel computing), or scalar value indicating
 #' the number of CPUs to use. Default = NA.
 #'
-#' @param tdist.re Logical value indicating whether cluster-level random effects
+#' @param tdist Logical value indicating whether cluster-level random effects
 #' should be drawn from a \mjseqn{t} distribution rather than a normal distribution.
 #' Default = \code{FALSE}.
 #'
@@ -136,8 +136,7 @@
 #' Defaults to \code{FALSE}.
 #'
 #' @param opt Optimizer for model fitting, from the package \code{optimx} or \code{nloptwrap}.
-#' Default is 'NLOPT_LN_BOBYQA'. XX KK JN Note: This needs to be discussed more with Lexi in
-#' conjuction with other optimization/singularity/convergence problems.
+#' Default is 'NLOPT_LN_BOBYQA'.
 #'
 #'
 #'
@@ -184,14 +183,14 @@
 #' @details
 #'
 #' If \code{family = 'poisson'}, the data generating model is:
-#' \mjsdeqn{y_{ijk} \sim \text{Poisson}(e^{c_k + b_{jk}}) }
+#' \mjsdeqn{y_{ijk} \sim \code{Poisson}(e^{c_k + b_{jk}}) }
 #' for observation \mjseqn{i}, in cluster \mjseqn{j}, in treatment arm \mjseqn{k}, where \mjseqn{b_{jk}\sim N(0,\sigma^2_{b_{k}})}.
 #'
 #' If \code{family = 'neg.bin'}, the data generating model, using the
 #' alternative parameterization of the negative binomial distribution
 #' detailed in \code{stats::rnbinom}, is:
 #'
-#' \mjsdeqn{y_{ijk} \sim \text{NB}(\mu = e^{c_k + b_{jk}}, \text{size} = 1) }
+#' \mjsdeqn{y_{ijk} \sim \code{NB}(\mu = e^{c_k + b_{jk}}, \code{size} = 1) }
 #'
 #' for observation \mjseqn{i}, in cluster \mjseqn{j}, in treatment arm \mjseqn{k}, where \mjseqn{b_{jk}\sim N(0,\sigma^2_{b_{k}})}.
 #'
@@ -228,11 +227,13 @@
 #' # seed = 123, the overall power for this trial should be 0.81.
 #'
 #' \dontrun{
-#' nsubjects.example <- list(c(150, 200, 50, 100), c(50, 150, 210, 100), c(70, 200, 150, 50, 100))
+#' nsubjects.example <- list(c(150, 200, 50, 100), c(50, 150, 210, 100),
+#'                        c(70, 200, 150, 50, 100))
 #' counts.example <- c(10, 55, 65)
 #' sigma_b_sq.example <- c(1, 1, 2)
 #'
 #' count.ma.rct.unbal <- cps.ma.count(nsim = 100,
+#'                             narms = 3,
 #'                             nsubjects = nsubjects.example,
 #'                             counts = counts.example,
 #'                             sigma_b_sq = sigma_b_sq.example,
@@ -270,22 +271,27 @@ cps.ma.count <- function(nsim = 1000,
                          allSimData = FALSE,
                          seed = NA,
                          cores = NA,
-                         tdist.re = FALSE,
+                         tdist = FALSE,
                          poorFitOverride = FALSE,
                          lowPowerOverride = FALSE,
                          timelimitOverride = TRUE,
                          return.all.models = FALSE,
                          nofit = FALSE,
                          opt = "NLOPT_LN_BOBYQA") {
+  converge <- NULL
   # use this later to determine total elapsed time
   start.time <- Sys.time()
   
-  # create narms and nclusters if not provided directly by user
+  if (is.null(narms)) {
+    stop("ERROR: narms is required.")
+  }
+  
+  if (narms < 3) {
+    stop("ERROR: LRT significance not calculable when narms < 3. Use cps.count() instead.")
+  }
+  
+  # create nclusters if not provided directly by user
   if (isTRUE(is.list(nsubjects))) {
-    # create narms and nclusters if not supplied by the user
-    if (is.null(narms)) {
-      narms <- length(nsubjects)
-    }
     if (is.null(nclusters)) {
       nclusters <- vapply(nsubjects, length, 0)
     }
@@ -324,12 +330,26 @@ cps.ma.count <- function(nsim = 1000,
     stop("nsubjects must be positive integer values.")
   }
   
-  # Create nsubjects structure from narms and nclusters when nsubjects is scalar
-  if (length(nsubjects) == 1) {
-    str.nsubjects <- lapply(nclusters, function(x)
-      rep(nsubjects, x))
-  } else {
+  # Generate nclusters vector when a scalar is provided but nsubjects is a vector
+  if (length(nclusters) == 1 & length(nsubjects) > 1) {
+    nclusters <- rep(nclusters, length(nsubjects))
+  }
+  # Create nsubjects structure from narms and nclusters
+  if (mode(nsubjects) == "list") {
     str.nsubjects <- nsubjects
+  } else {
+    if (length(nsubjects) == 1) {
+      str.nsubjects <- lapply(nclusters, function(x)
+        rep(nsubjects, x))
+    } else {
+      if (length(nsubjects) != narms) {
+        stop("nsubjects must be length 1 or length narms if not provided in a list.")
+      }
+      str.nsubjects <- list()
+      for (i in 1:length(nsubjects)) {
+        str.nsubjects[[i]] <- rep(nsubjects[i], times = nclusters[i])
+      }
+    }
   }
   
   # allow entries to be entered as text for Shiny app
@@ -361,17 +381,6 @@ cps.ma.count <- function(nsim = 1000,
     )
   }
   
-  if (narms < 3) {
-    message("Warning: LRT significance not calculable when narms<3. Use cps.count() instead.")
-  }
-  
-  # validateVariance(dist="bin", alpha=alpha, ICC=NA, sigma=NA,
-  #                   sigma_b=sigma_b_sq, ICC2=NA, sigma2=NA,
-  #                   sigma_b2=NA, method=method, quiet=quiet,
-  #                   all.sim.data=allSimData,
-  #                   poor.fit.override=poorFitOverride,
-  #                   cores=cores)
-  
   # Set warnings to OFF
   # Note: Warnings will still be stored in 'warning.list'
   options(warn = -1)
@@ -390,7 +399,7 @@ cps.ma.count <- function(nsim = 1000,
     poor.fit.override = poorFitOverride,
     low.power.override = lowPowerOverride,
     timelimitOverride = timelimitOverride,
-    tdist = tdist.re,
+    tdist = tdist,
     cores = cores,
     family = family,
     analysis = analysis,
@@ -472,38 +481,18 @@ cps.ma.count <- function(nsim = 1000,
     colnames(z.val) <- names.zval
     colnames(p.val) <- names.pval
     
-    if (narms > 2) {
-      # Organize the LRT output
-      LRT.holder <-
-        matrix(
-          unlist(count.ma.rct[[2]]),
-          ncol = 3,
-          nrow = nsim,
-          byrow = TRUE,
-          dimnames = list(seq(1:nsim),
-                          colnames(count.ma.rct[[2]][[1]]))
-        )
-      
-      # Proportion of times P(>F)
-      sig.LRT <-  ifelse(LRT.holder[, 3] < alpha, 1, 0)
-      LRT.holder.abbrev <- sum(sig.LRT)
-    }
-    
-    # Calculate and store power estimate & confidence intervals
-    sig.val <-  ifelse(p.val < alpha, 1, 0)
-    pval.power <- apply(sig.val, 2, sum)
-    
-    converged <- as.vector(rep(NA, times = nsim))
+    #convergence
+    converge <- as.vector(rep(NA, times = nsim))
     for (i in 1:nsim) {
-      converged[i] <-
+      converge[i] <-
         ifelse(is.null(count.ma.rct[[1]][[i]]$optinfo$conv$lme4$messages),
                TRUE,
                FALSE)
     }
-    cps.model.temp <- data.frame(converged, p.val)
-    colnames(cps.model.temp)[1] <- "converged"
+    cps.model.temp <- data.frame(converge, p.val)
+    colnames(cps.model.temp)[1] <- "converge"
     cps.model.temp2 <-
-      dplyr::filter(cps.model.temp, converged == TRUE)
+      dplyr::filter(cps.model.temp, converge == TRUE)
     if (isTRUE(nrow(cps.model.temp2) < (.25 * nsim))) {
       warning(paste0(
         nrow(cps.model.temp2),
@@ -512,9 +501,33 @@ cps.ma.count <- function(nsim = 1000,
       immediate. = TRUE)
     }
     
+    # Organize the LRT output
+    LRT.holder <-
+      matrix(
+        unlist(count.ma.rct[[2]]),
+        ncol = 3,
+        nrow = nsim,
+        byrow = TRUE,
+        dimnames = list(seq(1:nsim),
+                        colnames(count.ma.rct[[2]][[1]]))
+      )
+    
+    # Proportion of times P(>F)
+    LRT.holder <- cbind(LRT.holder, cps.model.temp["converge"])
+    LRT.holder <- LRT.holder[LRT.holder[, "converge"] == TRUE, ]
+    sig.LRT <-  ifelse(LRT.holder[, 3] < alpha, 1, 0)
+    
     # Calculate and store power estimate & confidence intervals
-    power.parms <- confintCalc(alpha = alpha,
-                               p.val = as.vector(cps.model.temp2[, 3:length(cps.model.temp2)]))
+    sig.val <-  ifelse(p.val < alpha, 1, 0)
+    pval.power <- apply(sig.val, 2, sum)
+    
+    # Calculate and store power estimate & confidence intervals
+    power.parms <- cbind(confintCalc(
+      alpha = alpha,
+      multi = TRUE,
+      p.val = as.vector(cps.model.temp2[, 3:length(cps.model.temp2)])
+    ),
+    multi_p_method)
     
     # Store simulation output in data frame
     ma.model.est <-
@@ -549,14 +562,14 @@ cps.ma.count <- function(nsim = 1000,
         list(
           "overview" = summary.message,
           "nsim" = nsim,
-          "power" =  power.parms,
-          "beta" = power.parms['Beta'],
-          "overall.power2" =
+          "power" =
             prop_H0_rejection(
               alpha = alpha,
               nsim = nsim,
-              LRT.holder.abbrev = LRT.holder.abbrev
+              sig.LRT = sig.LRT
             ),
+          "beta" = power.parms['Beta'],
+          "overall.power2" = power.parms,
           "overall.power" = LRT.holder,
           "method" = long.method,
           "alpha" = alpha,
@@ -577,14 +590,14 @@ cps.ma.count <- function(nsim = 1000,
         list(
           "overview" = summary.message,
           "nsim" = nsim,
-          "power" =  power.parms,
-          "beta" = power.parms['Beta'],
-          "overall.power2" =
+          "power" =
             prop_H0_rejection(
               alpha = alpha,
               nsim = nsim,
-              LRT.holder.abbrev = LRT.holder.abbrev
+              sig.LRT = sig.LRT
             ),
+          "beta" = power.parms['Beta'],
+          "overall.power2" = power.parms,
           "overall.power" = LRT.holder,
           "method" = long.method,
           "alpha" = alpha,
@@ -605,14 +618,14 @@ cps.ma.count <- function(nsim = 1000,
         list(
           "overview" = summary.message,
           "nsim" = nsim,
-          "power" =  power.parms,
-          "beta" = power.parms['Beta'],
-          "overall.power2" =
+          "power" =
             prop_H0_rejection(
               alpha = alpha,
               nsim = nsim,
-              LRT.holder.abbrev = LRT.holder.abbrev
+              sig.LRT = sig.LRT
             ),
+          "beta" = power.parms['Beta'],
+          "overall.power2" = power.parms,
           "overall.power" = LRT.holder,
           "method" = long.method,
           "alpha" = alpha,
@@ -676,13 +689,17 @@ cps.ma.count <- function(nsim = 1000,
       )
     
     # Proportion of times P(>F)
+    LRT.holder <- cbind(LRT.holder, count.ma.rct[["converged"]])
+    LRT.holder <- LRT.holder[LRT.holder[, "converged"] == TRUE, ]
     sig.LRT <-  ifelse(LRT.holder[, 3] < alpha, 1, 0)
-    LRT.holder.abbrev <- sum(sig.LRT) / nsim
     
     # Calculate and store power estimate & confidence intervals
-    power.parms <- confint.calc(nsim = nsim,
-                                alpha = alpha,
-                                p.val = Pr[, 2:narms])
+    power.parms <- cbind(confintCalc(
+      alpha = alpha,
+      multi = TRUE,
+      p.val = Pr[, 2:narms]
+    ),
+    multi_p_method)
     
     
     # Store GEE simulation output in data frame
@@ -716,14 +733,14 @@ cps.ma.count <- function(nsim = 1000,
         list(
           "overview" = summary.message,
           "nsim" = nsim,
-          "power" =  power.parms,
-          "beta" = power.parms['Beta'],
-          "overall.power2" =
+          "power" =
             prop_H0_rejection(
               alpha = alpha,
               nsim = nsim,
-              LRT.holder.abbrev = LRT.holder.abbrev
+              sig.LRT = sig.LRT
             ),
+          "beta" = power.parms['Beta'],
+          "overall.power2" = power.parms,
           "overall.power" = LRT.holder,
           "method" = long.method,
           "alpha" = alpha,
@@ -742,14 +759,14 @@ cps.ma.count <- function(nsim = 1000,
         list(
           "overview" = summary.message,
           "nsim" = nsim,
-          "power" =  power.parms,
-          "beta" = power.parms['Beta'],
-          "overall.power2" =
+          "power" =
             prop_H0_rejection(
               alpha = alpha,
               nsim = nsim,
-              LRT.holder.abbrev = LRT.holder.abbrev
+              sig.LRT = sig.LRT
             ),
+          "beta" = power.parms['Beta'],
+          "overall.power2" = power.parms,
           "overall.power" = LRT.holder,
           "method" = long.method,
           "alpha" = alpha,
@@ -768,14 +785,14 @@ cps.ma.count <- function(nsim = 1000,
         list(
           "overview" = summary.message,
           "nsim" = nsim,
-          "power" =  power.parms,
-          "beta" = power.parms['Beta'],
-          "overall.power2" =
+          "power" =
             prop_H0_rejection(
               alpha = alpha,
               nsim = nsim,
-              LRT.holder.abbrev = LRT.holder.abbrev
+              sig.LRT = sig.LRT
             ),
+          "beta" = power.parms['Beta'],
+          "overall.power2" = power.parms,
           "overall.power" = LRT.holder,
           "method" = long.method,
           "alpha" = alpha,

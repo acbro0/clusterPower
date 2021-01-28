@@ -11,7 +11,7 @@ cpa.sw.normal(
   nsubjects = NA,
   ntimes = NA,
   d = NA,
-  icc = NA,
+  ICC = NA,
   rho_c = NA,
   rho_s = NA,
   vart = NA,
@@ -33,7 +33,7 @@ error.}
 
 \item{d}{The expected treatment effect.}
 
-\item{icc}{The intra-cluster correlation, the correlation in outcome measurements between
+\item{ICC}{The intra-cluster correlation, the correlation in outcome measurements between
 two individuals from the same cluster.}
 
 \item{rho_c}{The cluster autocorrelation, the correlation between two population means
@@ -55,44 +55,45 @@ at least four significant digits.}
 The computed argument.
 }
 \description{
+\loadmathjax
+
 Compute the power of a stepped wedge cluster randomized trial design with a continuous outcome,
 or determine parameters to obtain a target power.
-}
-\details{
+
 Exactly one of \code{alpha}, \code{power}, \code{nclusters}, \code{nsubjects},
-  \code{ntimes}, \code{d}, \code{icc}, \code{rho_c}, \code{rho_s}, and \code{vart}
+  \code{ntimes}, \code{d}, \code{ICC}, \code{rho_c}, \code{rho_s}, and \code{vart}
   must be passed as \code{NA}. Note that \code{alpha} and\code{power}
   have non-\code{NA} defaults, so if those are the parameters of 
   interest they must be explicitly passed as \code{NA}.
 
 The stepped wedge model assumed by Hooper et al (2016) is given below:
 
-  \deqn{y_{itjk} = \mu + \beta_t + X_{it}\theta + c_{ij} + (ct)_{itj} + s_{ijk}} + e_{itjk}
+  \mjsdeqn{y_{itjk} = \mu + \beta_t + X_{it}\theta + c_{ij} + (ct)_{itj} + s_{ijk} + e_{itjk}}
    
-  where \eqn{y_{itjk}} is the outcome for individual \eqn{k} in cluster \eqn{j} of arm \eqn{i}
-  at time \eqn{t}. Fixed effects include the overall mean \eqn{\mu} and effects for time \eqn{\beta_t}.
-  The vector \eqn{X_{it}} is 1 if arm \eqn{i} at time \eqn{t} is undergoing the intervention, 0
-  otherwise. The terms \eqn{c_{ij}}, \eqn{(ct)_{itj}}, \eqn{s_{ijk}}, and \eqn{e_{itjk}} correspond
+  where \mjseqn{y_{itjk}} is the outcome for individual \mjseqn{k} in cluster \mjseqn{j} of arm \mjseqn{i}
+  at time \mjseqn{t}. Fixed effects include the overall mean \mjseqn{\mu} and effects for time \mjseqn{\beta_t}.
+  The vector \mjseqn{X_{it}} is 1 if arm \mjseqn{i} at time \mjseqn{t} is undergoing the intervention, 0
+  otherwise. The terms \mjseqn{c_{ij}}, \mjseqn{(ct)_{itj}}, \mjseqn{s_{ijk}}, and \mjseqn{e_{itjk}} correspond
   to the time invariant cluster random effect, the time-varying cluster random effect,
   the time invariant subject random effect, and the time-varying subject random effect respectively.
   Random effects are assumed to be independent and Normally distributed with mean 0 and variances
-  \eqn{\sigma_{C}^2}, \eqn{\sigma_{CT}^2}, \eqn{\sigma_{S}^2}, and \eqn{\sigma_{E}^2}, respectively.
+  \mjseqn{\sigma_{C}^2}, \mjseqn{\sigma_{CT}^2}, \mjseqn{\sigma_{S}^2}, and \mjseqn{\sigma_{E}^2}, respectively.
   
-The total variance of the outcome \eqn{\sigma^2} is given by
+The total variance of the outcome \mjseqn{\sigma^2} is given by
   
-  \deqn{\sigma^2 = \sigma_{C}^2 + \sigma_{CT}^2 + \sigma_{S}^2 + \sigma_{E}^2}
+  \mjsdeqn{\sigma^2 = \sigma_{C}^2 + \sigma_{CT}^2 + \sigma_{S}^2 + \sigma_{E}^2}
   
-Let \eqn{\rho}, \eqn{\rho}, and \eqn{\rho} be the intracluster correlation, cluster autocorrelation,
+Let \mjseqn{\rho}, \mjseqn{\rho}, and \mjseqn{\rho} be the intracluster correlation, cluster autocorrelation,
   and subject autocorrelation, respectively. These parameters are given as follows:
   
-  \deqn{\rho = \frac{\sigma_{C}^2 + \sigma_{CT}^2}{\sigma_{C}^2 + \sigma_{CT}^2 + \sigma_{S}^2 + \sigma_{E}^2}}
+  \mjsdeqn{\rho = \frac{\sigma_{C}^2 + \sigma_{CT}^2}{\sigma_{C}^2 + \sigma_{CT}^2 + \sigma_{S}^2 + \sigma_{E}^2}}
   
-  \deqn{\rho_C = \frac{\sigma_{C}^2}{\sigma_{C}^2 + \sigma_{CT}^2}}
+  \mjsdeqn{\rho_C = \frac{\sigma_{C}^2}{\sigma_{C}^2 + \sigma_{CT}^2}}
   
-  \deqn{\rho_S = \frac{\sigma_{S}^2}{\sigma_{S}^2 + \sigma_{E}^2}}
+  \mjsdeqn{\rho_S = \frac{\sigma_{S}^2}{\sigma_{S}^2 + \sigma_{E}^2}}
   
-When \eqn{\rho_S = 0} the design is considered to be a cross-sectional design, with new individuals 
-  observed at each time point. When \eqn{\rho_S > 0} the design is a closed cohort, with repeated measurements
+When \mjseqn{\rho_S = 0} the design is considered to be a cross-sectional design, with new individuals 
+  observed at each time point. When \mjseqn{\rho_S > 0} the design is a closed cohort, with repeated measurements
   on the same individuals at each time point.
 }
 \section{Note}{
@@ -106,18 +107,21 @@ When \eqn{\rho_S = 0} the design is considered to be a cross-sectional design, w
 
 \section{Authors}{
 
-Jonathan Moyer (\email{jon.moyer@gmail.com}), Ken Kleinman (\email{ken.kleinman@gmail.com}), Alexandria C. Sakrejda
+Jonathan Moyer (\email{jon.moyer@gmail.com}),
+Alexandria C. Sakrejda (\email{acbro0@gmail.com}), 
+Ken Kleinman (\email{ken.kleinman@gmail.com})
 }
 
 \examples{
 # Find the required number of clusters switching to intervention at each time point for a trial 
-# with alpha = 0.05, power = 0.80, nsubjects = 50, ntimes = 5, d = 1.5 units, icc = 0.2,
+# with alpha = 0.05, power = 0.80, nsubjects = 50, ntimes = 5, d = 1.5 units, ICC = 0.2,
 # rho_c = 0.80, rho_s = 0, and vart = 16 square-units. Note that because rho_s = 0, this is a 
 # cross-sectional design.
-cpa.sw.normal(nsubjects = 50, ntimes = 5, d = 1.5, icc = 0.2, rho_c = 0.80, rho_s = 0, vart = 16)
+cpa.sw.normal(nsubjects = 50, ntimes = 5, d = 1.5, ICC = 0.2, rho_c = 0.80, rho_s = 0, vart = 16)
 # 
-# The result, nclusters = 1.288772, suggests 2 clusters switching per time point should be used. This
-# means that the total number of clusters in the study is nclusters*ntimes = 2*5 = 10.
+# The result, nclusters = 1.288772, suggests 2 clusters switching per time point 
+# should be used. This means that the total number of clusters in the study is 
+# nclusters * ntimes = 2 * 5 = 10.
 
 }
 \references{

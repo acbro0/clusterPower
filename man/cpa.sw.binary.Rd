@@ -8,10 +8,11 @@ cpa.sw.binary(
   nclusters = NA,
   steps = NA,
   nsubjects = NA,
-  d = NA,
+  alpha = 0.05,
+  timeEffect = 0,
   ICC = NA,
-  beta = NA,
-  mu = NA,
+  p0 = NA,
+  p1 = NA,
   tol = 1e-05,
   GQ = 100,
   quiet = FALSE
@@ -21,20 +22,22 @@ cpa.sw.binary(
 \item{nclusters}{Number of clusters; accepts non-negative integer scalar (required).}
 
 \item{steps}{Number of crossover steps; Accepts positive scalar indicating the total
-number of steps (required).}
+number of steps, NOT including the baseline (required).}
 
 \item{nsubjects}{Number of subjects per cluster; accepts a scalar. Equal cluster sizes
 are assumed (required).}
 
-\item{d}{Total change over the study period (assume that time effects are linear
-across time steps); accepts numeric (required).}
+\item{alpha}{Significance level (default=0.05).}
+
+\item{timeEffect}{Expected time effect over the entire study period (assumed to be linear
+across time steps); accepts numeric (required). Default = 0 (no time effects).}
 
 \item{ICC}{Intracluster correlation coefficient as defined by Hussey and Hughes (2007) 
 for participants at first time step; accepts numeric (required).}
 
-\item{beta}{Estimated treatment effect; accepts numeric (required).}
+\item{p0}{Estimated baseline effect; accepts numeric (required).}
 
-\item{mu}{Estimated baseline effect; accepts numeric (required).}
+\item{p1}{Estimated treatment effect; accepts numeric (required).}
 
 \item{tol}{Machine tolerance. Accepts numeric. Default is 1e-5.}
 
@@ -54,8 +57,8 @@ parameters to suit their desired experimental situation.
 \details{
 The stepped wedge trial design is a type of cross-over
 design in which clusters change treatments in waves. Initially all the
-clusters recieve the same standard treatment, and at the end of the trial all
-of the clusters will be recieving the treatment of interest. More than one
+clusters receive the same standard treatment, and at the end of the trial all
+of the clusters will be receiving the treatment of interest. More than one
 cluster can change treatments in a wave, but the order in which clusters
 change treatments is randomly determined. The outcome of interest is assessed
 in each cluster during each wave.
@@ -64,20 +67,28 @@ Users must specify the number of subjects per cluster, number of clusters,
 the number of time steps, the baseline effect, the expected treatment effect,
 expected absolute difference between treatment
 arms, ICC, and time effect.
-
-Fortran for this package was kindly provided by Dr. Zhou and others.
+}
+\note{
+Much of the FORTRAN code for this package was kindly provided by Dr. Zhou.
 }
 \examples{
+
+# Estimate power for a trial with 3 steps and 9 clusters at the 
+# initiation of the study. Those 
+# clusters have 14 subjects each with no time effects. 
+# We estimated arm outcome proportions of 
+# 0.2 (pre-treatment) and 0.31 (post-treatment) and intracluster 
+# correlation coefficient (ICC) of 0.05. 
+# The resulting power should be 0.7992842.
+
 \dontrun{
-holder <- cpa.sw.binary(nclusters = 20,
+sw.bin <- cpa.sw.binary(nclusters = 9,
   steps = 3,
-  nsubjects = 90,
-  d = -0.05,
-  ICC = 0.01,
-  beta = -0.05,
-  mu = 0.18,
-  tol = 1e-5,
-  GQ = 100)
+  nsubjects = 14,
+  timeEffect = 0,
+  ICC = 0.05,
+  p1 = 0.31,
+  p0 = 0.2)
 }
 
 }

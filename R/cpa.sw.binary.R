@@ -6,8 +6,8 @@
 #'
 #' The stepped wedge trial design is a type of cross-over
 #' design in which clusters change treatments in waves. Initially all the
-#' clusters recieve the same standard treatment, and at the end of the trial all
-#' of the clusters will be recieving the treatment of interest. More than one
+#' clusters receive the same standard treatment, and at the end of the trial all
+#' of the clusters will be receiving the treatment of interest. More than one
 #' cluster can change treatments in a wave, but the order in which clusters
 #' change treatments is randomly determined. The outcome of interest is assessed
 #' in each cluster during each wave.
@@ -22,18 +22,20 @@
 #' 
 #' @param nclusters Number of clusters; accepts non-negative integer scalar (required).
 #' 
-#' @param steps Number of crossover steps; Accepts positive scalar indicating the total
-#' number of steps (required).
+#' @param alpha Significance level (default=0.05).
 #' 
-#' @param d Total change over the study period (assume that time effects are linear
-#' across time steps); accepts numeric (required).
+#' @param steps Number of crossover steps; Accepts positive scalar indicating the total
+#' number of steps, NOT including the baseline (required).
+#' 
+#' @param timeEffect Expected time effect over the entire study period (assumed to be linear
+#' across time steps); accepts numeric (required). Default = 0 (no time effects).
 #' 
 #' @param ICC Intracluster correlation coefficient as defined by Hussey and Hughes (2007) 
 #' for participants at first time step; accepts numeric (required). 
 #' 
-#' @param beta Estimated treatment (arm 2) effect; accepts numeric (required).
+#' @param p1 Estimated treatment effect; accepts numeric (required).
 #' 
-#' @param mu0 Estimated baseline (arm 1) effect; accepts numeric (required).
+#' @param p0 Estimated baseline effect; accepts numeric (required).
 #' 
 #' @param tol Machine tolerance. Accepts numeric. Default is 1e-5.
 #' 
@@ -46,22 +48,22 @@
 #'
 #' @examples
 #' 
-#' # Estimate power for a trial with 3 steps and 20 clusters in arm 1 (often the 
-#' # standard-of-care or 'control' arm) at the initiation of the study. Those 
-#' # clusters have 90 subjects each, with anticipated change of -0.75 from the 
-#' # beginning to the end of the study. We estimated arm outcome proportions of 
-#' # 0.2 and 0.4 in the first (usually baseline) and second (usually treatment) 
-#' # arms, respectively, and intracluster correlation coefficient (ICC) of 0.01. 
-#' # The resulting power should be 0.8170374.
+#' # Estimate power for a trial with 3 steps and 9 clusters at the 
+#' # initiation of the study. Those 
+#' # clusters have 14 subjects each with no time effects. 
+#' # We estimated arm outcome proportions of 
+#' # 0.2 (pre-treatment) and 0.31 (post-treatment) and intracluster 
+#' # correlation coefficient (ICC) of 0.05. 
+#' # The resulting power should be 0.7992842.
 #' 
 #' \dontrun{
-#' sw.bin <- cpa.sw.binary(nclusters = 50,
-#'   steps = 2,
-#'   nsubjects = 100,
-#'   d = -0.75,
-#'   ICC = 0.01,
-#'   beta = 0.4,
-#'   mu0 = 0.2)
+#' sw.bin <- cpa.sw.binary(nclusters = 9,
+#'   steps = 3,
+#'   nsubjects = 14,
+#'   timeEffect = 0,
+#'   ICC = 0.05,
+#'   p1 = 0.31,
+#'   p0 = 0.2)
 #' }
 #'
 #' @author Alexandria C. Sakrejda (\email{acbro0@@umass.edu})
@@ -79,14 +81,23 @@
 cpa.sw.binary <- function(nclusters = NA,
                           steps = NA,
                           nsubjects = NA,
-                          d = NA,
+                          alpha = 0.05,
+                          timeEffect = 0,
                           ICC = NA,
-                          beta = NA,
-                          mu0 = NA,
+                          p0 = NA,
+                          p1 = NA,
                           tol = 1e-5,
                           GQ = 100,
                           quiet = FALSE) {
   ###### Define some FORTRAN-calling functions  ########
+  
+  steps = steps + 1 # to include the baseline
+  
+  if (p1 < 0 | p0 < 0) {
+    stop("Proportions (p1 & p2) cannot be negative.")
+  }
+  
+  beta <- p1 - p0
   
   syminverse <- function(invVar = invVar,
                          Var = Var,
@@ -114,7 +125,7 @@ cpa.sw.binary <- function(nclusters = NA,
       return(o)
     }
   
-  der_likelihood_time <- function(mu = mu0,
+  der_likelihood_time <- function(mu = p0,
                                   beta = beta,
                                   gammaobj = gammaobj,
                                   tau2 = tau2,
@@ -181,7 +192,7 @@ cpa.sw.binary <- function(nclusters = NA,
   }
   
   computeparameter <- function(JJ = steps,
-                               mu = mu0,
+                               mu = p0,
                                beta = beta,
                                p0 = p0,
                                p11 = p11,
@@ -203,7 +214,7 @@ cpa.sw.binary <- function(nclusters = NA,
   }
   
   LinearPower_notime_subroutine <-
-    function(mu = mu0,
+    function(mu = p0,
              beta = beta,
              tau2 = tau2,
              II = II,
@@ -262,9 +273,9 @@ cpa.sw.binary <- function(nclusters = NA,
       is.na(GQ)) {
     errorCondition(message = "GQ must be a positive scalar.")
   }
-  if (is.na(d) ||
-      is.na(ICC) || is.na(beta) || is.na(mu0) || is.na(tol)) {
-    errorCondition("User must provide a value for d, ICC, beta, mu0, and tol. See documentation for details.")
+  if (is.na(timeEffect) ||
+      is.na(ICC) || is.na(beta) || is.na(p0) || is.na(tol)) {
+    errorCondition("User must provide a value for timeEffect, ICC, beta, p0, and tol. See documentation for details.")
   }
   if (!is.logical(quiet)) {
     errorCondition("Provide a logical for quiet.")
@@ -277,15 +288,15 @@ cpa.sw.binary <- function(nclusters = NA,
     message(paste0('Begin calculations :: Start Time: ', Sys.time()))
   }
   
-  p0 <- rep(mu0, times = steps)
+  p0 <- rep(p0, times = steps)
   p11 <-  p0[1] + beta
-  p0stepchange <- d / (steps - 1)
+  p0stepchange <- timeEffect / (steps - 1)
   for (i in 2:steps) {
     p0[i] <-  p0[i - 1] + p0stepchange
   }
   parholder <- computeparameter(
     JJ = steps,
-    mu = mu0,
+    mu = p0,
     beta = beta,
     p0 = p0,
     p11 = p11,
@@ -293,19 +304,30 @@ cpa.sw.binary <- function(nclusters = NA,
   )
   tau2 <- parholder$tau2
   gammaobj <- parholder$gamma
-  
   # mincomp and maxcomp are steps+2 vectors of 0 and 1's,
-  # representing the weights of gammaobj(1),...,gammaobj(steps), mu0, beta.
+  # representing the weights of gammaobj(1),...,gammaobj(steps), p0, beta.
   comp <- rep(0, times = (steps + 2))
   maxcomp <- comp
   mincomp <- comp
   
-  if (d > tol || d < -tol) {
+  ## Set start.time for progress iterator & initialize progress bar
+  if (quiet == FALSE) {
+    start.time = Sys.time()
+    prog.bar =  progress::progress_bar$new(
+      format = "(:spin) [:bar] :percent eta :eta",
+      total = (nsubjects + 1),
+      clear = FALSE,
+      width = 100
+    )
+    prog.bar$tick(0)
+  }
+  
+  if (timeEffect > tol || timeEffect < -tol) {
     a <-  100
     b <- -100
     
     for (i in 1:steps) {
-      temp = mu0 + gammaobj[i]
+      temp = p0[i] + gammaobj[i]
       if (temp < a) {
         a = temp
         mincomp <- comp
@@ -318,7 +340,7 @@ cpa.sw.binary <- function(nclusters = NA,
         maxcomp[steps + 1] = 1
         maxcomp[i] = 1
       }
-      temp = mu0 + beta + gammaobj[i]
+      temp = p0[i] + beta + gammaobj[i]
       if (temp < a) {
         a = temp
         mincomp <- comp
@@ -358,17 +380,6 @@ cpa.sw.binary <- function(nclusters = NA,
     invVar <- matrix(0, nrow = (steps + 2), ncol = (steps + 2))
     
     h <- 0
-    ## Set start.time for progress iterator & initialize progress bar
-    if (quiet == FALSE) {
-      start.time = Sys.time()
-      prog.bar =  progress::progress_bar$new(
-        format = "(:spin) [:bar] :percent eta :eta",
-        total = (nsubjects + 1),
-        clear = FALSE,
-        width = 100
-      )
-      prog.bar$tick(0)
-    }
     
     for (i in 1:(steps - 1)) {
       z0 <- rep(0, times = steps)
@@ -380,7 +391,7 @@ cpa.sw.binary <- function(nclusters = NA,
         z1 <- nsubjects - z0
         
         Dholder <- der_likelihood_time(
-          mu = mu0,
+          mu = p0,
           beta = beta,
           gammaobj = gammaobj,
           tau2 = tau2,
@@ -445,16 +456,17 @@ cpa.sw.binary <- function(nclusters = NA,
       byrow = FALSE
     )
     sebeta <- sqrt(Var[2, 2] / DD)
-    power <- pnorm(beta / sebeta - 1.959964, lower.tail = TRUE) +
-      pnorm(-beta / sebeta - 1.959964, lower.tail = TRUE)
+    z_half_alpha <- qnorm(1 - alpha / 2) 
+    power <- pnorm(beta / sebeta - z_half_alpha, lower.tail = TRUE) +
+      pnorm(-beta / sebeta - z_half_alpha, lower.tail = TRUE)
     
   } else {
     if (beta > 0) {
-      a = -mu0
-      b = 1 - mu0 - beta
+      a = -p0
+      b = 1 - p0 - beta
     } else {
-      a = -mu0 - beta
-      b = 1 - mu0
+      a = -p0 - beta
+      b = 1 - p0
     }
     quadholder <- legendre_handle(order = GQ,
                                   a = a,
@@ -464,7 +476,7 @@ cpa.sw.binary <- function(nclusters = NA,
     
     Linpower <-
       LinearPower_notime_subroutine(
-        mu = mu0,
+        mu = p0,
         beta = beta,
         tau2 = tau2,
         II = nclusters,
@@ -498,5 +510,6 @@ cpa.sw.binary <- function(nclusters = NA,
       )
     )
   }
+  names(power) <- "power"
   return(power)
 }

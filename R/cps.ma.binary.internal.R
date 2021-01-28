@@ -45,8 +45,8 @@
 #' When this option is set to NA, no parallel computing is used.
 #' @param nofit Option to skip model fitting and analysis and return the simulated data.
 #' Defaults to \code{FALSE}.
-#' @param opt Option to fit with a different optimizer (using the package \code{optimx}). Default is 'optim'.
-#' @param optmethod User-specified optimizer methods available for the optimizer specified in \code{opt} option.
+#' @param optmethod User-specified optimizer method. Accepts \code{bobyqa},
+#' \code{Nelder_Mead}, and optimizers wrapped in the \code{optimx} package.
 #' @param return.all.models Logical; Returns all of the fitted models and the simulated data.
 #' Defaults to FALSE.
 #'
@@ -76,13 +76,12 @@
 #'                             alpha = 0.05, all.sim.data = FALSE,
 #'                             poor.fit.override = TRUE,
 #'                             seed = 123, cores="all",
-#'                             opt = "bobyqa",
 #'                             optmethod = "Nelder-Mead")
 #' }
 #'
 #' @author Alexandria C. Sakrejda (\email{acbro0@@umass.edu}), Alexander R. Bogdan, and Ken Kleinman (\email{ken.kleinman@@gmail.com})
 #'
-#' @export
+#' @noRd
 cps.ma.binary.internal <-
   function(nsim = 1000,
            str.nsubjects = NULL,
@@ -99,18 +98,16 @@ cps.ma.binary.internal <-
            tdist = FALSE,
            cores = cores,
            nofit = FALSE,
-           opt = opt,
            optmethod = optmethod,
            return.all.models = FALSE) {
     # Create vectors to collect iteration-specific values
-    simulated.datasets = list()
-    
+    simulated.datasets <- list()
     # Create NCLUSTERS, NARMS, from str.nsubjects
     narms = length(str.nsubjects)
     nclusters = sapply(str.nsubjects, length)
     
     # This container keeps track of how many models converged
-    converged <- rep(NA, nsim)
+    converged <- rep(FALSE, nsim)
     
     # Create a container for the simulated.dataset and model output
     sim.dat = vector(mode = "list", length = nsim)
@@ -124,18 +121,16 @@ cps.ma.binary.internal <-
     
     # Create indicators for treatment group & cluster for the sim.data output
     trt1 = list()
+    clust1 = list()
+    index <- 0
     for (arm in 1:length(str.nsubjects)) {
       trt1[[arm]] = list()
+      clust1[[arm]] =  list()
       for (cluster in 1:length(str.nsubjects[[arm]])) {
-        trt1[[arm]][[cluster]] = rep(arm, str.nsubjects[[arm]][[cluster]])
+        index <- index + 1
+        trt1[[arm]][[cluster]] = rep(arm, sum(str.nsubjects[[arm]][[cluster]]))
+        clust1[[arm]][[cluster]] = rep(index, sum(str.nsubjects[[arm]][[cluster]]))
       }
-    }
-    clust1 = list()
-    for (i in 1:sum(nclusters)) {
-      clust1[[i]] <- lapply(seq(1, sum(nclusters))[i],
-                            function (x) {
-                              rep.int(x, unlist(str.nsubjects)[i])
-                            })
     }
     
     # Calculate log odds for each group
@@ -156,6 +151,7 @@ cps.ma.binary.internal <-
       stop("trt and clust are not the same length, see line 134")
     }
     sim.dat <- matrix(nrow = length(clust), ncol = nsim)
+    
     # function to produce the simulated data
     make.sim.dat <- function(tdist = tdist,
                              logit.p = logit.p,
@@ -183,14 +179,14 @@ cps.ma.binary.internal <-
           randint.holder[[j]] <- logit.p[j] + randint[[j]]
         }
         randintrandint <-
-          sapply(randint.holder, clusterPower::expit)
+          sapply(randint.holder, expit)
       } else {
         randint.holder <-
           matrix(nrow = nclusters[1], ncol = length(logit.p))
         for (j in 1:length(logit.p)) {
           randint.holder[, j] <- logit.p[j] + randint[, j]
         }
-        randintrandint <- clusterPower::expit(randint.holder)
+        randintrandint <- expit(randint.holder)
       }
       # Create y-value
       y.intercept <-  vector(mode = "numeric",
@@ -202,33 +198,33 @@ cps.ma.binary.internal <-
       y <-
         sapply(unlist(y.intercept), function(x)
           stats::rbinom(1, 1, x))
+      y <- as.numeric(y)
       return(y)
-    }
+    } #end make.sim.dat function definition
+    
     sim.dat <-
-      replicate(
-        nsim,
-        make.sim.dat(
-          tdist = tdist,
-          logit.p = logit.p,
-          nclusters = nclusters,
-          sigma_b_sq = sigma_b_sq,
-          str.nsubjects = str.nsubjects
-        )
+      data.frame(
+        as.factor(trt),
+        as.factor(clust),
+        replicate(
+          nsim,
+          make.sim.dat(
+            tdist = tdist,
+            logit.p = logit.p,
+            nclusters = nclusters,
+            sigma_b_sq = sigma_b_sq,
+            str.nsubjects = str.nsubjects
+          )
+        ),
+        stringsAsFactors = TRUE
       )
+    sim.num <- 1:nsim
+    temp <- paste0("y", sim.num)
+    colnames(sim.dat) <- c("arm", "cluster", temp)
     
     #option to return simulated data only
     if (nofit == TRUE) {
-      sim.dat <- data.frame(trt, clust, sim.dat)
-      sim.num <- 1:nsim
-      temp <- paste0("y", sim.num)
-      colnames(sim.dat) <- c("arm", "cluster", temp)
       return(sim.dat)
-    }
-    
-    require(foreach)
-    `%fun%` <- `%dopar%`
-    if (is.na(cores)) {
-      `%fun%` <- `%do%`
     }
     
     #setup for parallel computing
@@ -243,23 +239,31 @@ cps.ma.binary.internal <-
       ## Create clusters and initialize the progress bar
       cl <-
         parallel::makeCluster(rep("localhost", nc), type = "SOCK")
-      doSNOW::registerDoSNOW(cl)
+      doParallel::registerDoParallel(cl)
     }
     pb <- txtProgressBar(min = 1, max = nsim, style = 3)
     progress <- function(n)
       setTxtProgressBar(pb, n)
     opts <- list(progress = progress)
     
+    # define function to perform parallel vs sequential computing
+    if (is.na(cores)) {
+      `%fun%` <- foreach::`%do%`
+    } else {
+      `%fun%` <- foreach::`%dopar%`
+    }
+    
+    ## BEGIN GLMM METHOD
     if (method == "glmm") {
       # Update simulation progress information
       sim.start <- Sys.time()
-      lme4::glmer(sim.dat[, 1] ~ trt + (1 |
+      lme4::glmer(sim.dat[, 3] ~ trt + (1 |
                                           clust),
                   family = stats::binomial(link = 'logit'))
       avg.iter.time = as.numeric(difftime(Sys.time(), sim.start, units = 'secs'))
-      time.est = avg.iter.time * (nsim - 1) / 60
+      time.est = avg.iter.time * (nsim) / 60
       hr.est = time.est %/% 60
-      min.est = round(time.est %% 60, 0)
+      min.est = round(time.est %% 60, 3)
       
       #time limit override (for Shiny)
       if (min.est > 2 && timelimitOverride == FALSE) {
@@ -301,32 +305,20 @@ cps.ma.binary.internal <-
         Sys.sleep(1 / 100)
       }
       # Create simulation loop
-      require(doParallel)
-      require(foreach)
       if (!is.na(cores) & quiet == FALSE) {
         message("Fitting models")
       }
       
       my.mod <- foreach::foreach(
         i = 1:nsim,
-        .options.snow = opts,
+        .options.parallel = opts,
         .packages = c("lme4", "optimx"),
         .inorder = FALSE
       ) %fun% {
         lme4::glmer(
-          sim.dat[, i] ~ trt + (1 | clust),
-          family = stats::binomial(link = 'logit'),
-          control = lme4::glmerControl(
-            optimizer = opt,
-            calc.derivs = TRUE,
-            optCtrl = list(
-              maxfun = 2e4,
-              method = optmethod,
-              starttests = TRUE,
-              kkt = FALSE
-            )
+          sim.dat[, i + 2] ~ trt + (1 | clust),
+          family = stats::binomial(link = 'logit')
           )
-        )
       }
       
       if (is.na(cores) & quiet == FALSE) {
@@ -335,24 +327,51 @@ cps.ma.binary.internal <-
         Sys.sleep(1 / 100)
       }
       
-      # option to stop the function early if fits are singular
       for (i in 1:nsim) {
         converged[i] <-
           ifelse(is.null(my.mod[[i]]@optinfo$conv$lme4$messages),
                  TRUE,
                  FALSE)
       }
-      
-      if (poor.fit.override == FALSE) {
-        if (sum(unlist(converged), na.rm = TRUE) < (nsim * .75)) {
-          stop("more than 25% of simulations are singular fit: check model specifications")
+        # option to stop the function early if fits are singular
+        if (poor.fit.override == FALSE & i > 50) {
+          if (sum(unlist(converged), na.rm = TRUE) < (nsim * .75)) {
+            stop("more than 25% of simulations are singular fit: check model specifications")
+          }
         }
+      
+      # refit once if model did not converge
+      idx <- which(converged == FALSE)
+      if (length(idx > 0)) {
+        for (j in idx)
+          my.mod[[j]] <- lme4::glmer(
+            sim.dat[, j + 2] ~ trt + (1 | clust),
+            family = stats::binomial(link = 'logit')
+          )
+        converged[j] <-
+          ifelse(is.null(my.mod[[j]]@optinfo$conv$lme4$messages),
+                 TRUE,
+                 FALSE)
       }
       
-      # stop the loop if power is <0.5
-      if (narms > 2) {
+      if (!is.na(cores) & quiet == FALSE) {
+        message("\r Performing null model comparisons")
+      }
+      # get the overall p-values (>Chisq)
+      model.compare <- foreach::foreach(
+        i = 1:nsim,
+        .options.parallel = opts,
+        .packages = c("car", "optimx"),
+        .inorder = FALSE
+      ) %fun% {
+        car::Anova(my.mod[[i]], type = "II")
+      }
+      
+      for (i in 1:nsim) {
+        # stop the loop if power is <0.5
         if (low.power.override == FALSE &&
-            i > 50 && (i %% 10 == 0) && length(model.compare) != 0) {
+            i > 50 &&
+            (i %% 10 == 0) && length(model.compare) != 0) {
           temp.power.checker <-
             try(matrix(
               unlist(model.compare[1:i]),
@@ -376,20 +395,8 @@ cps.ma.binary.internal <-
             )
           }
         }
-        
-        if (!is.na(cores) & quiet == FALSE) {
-          message("\r Performing null model comparisons")
-        }
-        # get the overall p-values (>Chisq)
-        model.compare <- foreach::foreach(
-          i = 1:nsim,
-          .options.snow = opts,
-          .packages = c("car", "optimx"),
-          .inorder = FALSE
-        ) %fun% {
-          car::Anova(my.mod[[i]], type = "II")
-        }
       }
+      
       if (is.na(cores) & quiet == FALSE) {
         # Iterate progress bar
         prog.bar$update(4 / 5)
@@ -403,7 +410,7 @@ cps.ma.binary.internal <-
       model.values <-
         foreach::foreach(
           i = 1:nsim,
-          .options.snow = opts,
+          .options.parallel = opts,
           .packages = "car",
           .inorder = FALSE
         ) %fun% {
@@ -427,15 +434,16 @@ cps.ma.binary.internal <-
     if (method == 'gee') {
       sim.start <- Sys.time()
       geepack::geeglm(
-        sim.dat[, 1] ~ trt,
+        sim.dat[, 3] ~ trt,
         family = stats::binomial(link = 'logit'),
         id = clust,
         corstr = "exchangeable"
       )
-      avg.iter.time <- Sys.time() - sim.start
+      avg.iter.time <-
+        as.numeric(difftime(Sys.time(), sim.start, units = 'secs'))
       time.est = avg.iter.time * (nsim - 1) / 60
       hr.est = time.est %/% 60
-      min.est = round(time.est %% 60, 0)
+      min.est = round(time.est %% 60, 3)
       
       #time limit override (for Shiny)
       if (min.est > 2 && timelimitOverride == FALSE) {
@@ -468,7 +476,6 @@ cps.ma.binary.internal <-
           prog.bar$tick(0)
         }
       }
-      require(foreach)
       if (!is.na(cores) & quiet == FALSE) {
         message("Fitting models")
       }
@@ -481,17 +488,23 @@ cps.ma.binary.internal <-
       
       my.mod <- foreach::foreach(
         i = 1:nsim,
-        .options.snow = opts,
+        .options.parallel = opts,
         .packages = "geepack",
         .inorder = FALSE
       ) %fun% {
         geepack::geeglm(
-          sim.dat[, i] ~ trt,
+          sim.dat[, i + 2] ~ trt,
           family = stats::binomial(link = 'logit'),
           id = clust,
           corstr = "exchangeable"
         )
       }
+      
+      # check for gee convergence
+      for (i in 1:length(my.mod)) {
+        converged[i] <- ifelse(summary(my.mod[[i]])$error == 0, TRUE, FALSE)
+      }
+      
       if (!is.na(cores) & quiet == FALSE) {
         message("Performing null model comparisons")
       }
@@ -534,7 +547,7 @@ cps.ma.binary.internal <-
         "estimates" = model.values,
         "model.comparisons" = model.compare,
         "converged" = unlist(converged),
-        "sim.data" = data.frame(trt, clust, sim.dat)
+        "sim.data" = data.frame(sim.dat)
       )
     } else {
       complete.output.internal <-  list(

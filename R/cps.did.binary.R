@@ -1,5 +1,8 @@
 #' Power simulations for cluster-randomized trials: Difference in Difference, Binary Outcome.
 #'
+#' @description 
+#' \loadmathjax
+#'
 #' This function utilizes iterative simulations to determine 
 #' approximate power for cluster-randomized controlled trials. Users 
 #' can modify a variety of parameters to suit the simulations to their
@@ -15,10 +18,11 @@
 #' ; post-treatment between-cluster variance, significance level, analytic method, progress updates, 
 #' and simulated data set output may also be specified.
 #' 
-#' The following equations are used to estimate intra-cluster correltation coefficients:
-#' P_h: \deqn{ICC = \frac{\sigma_{b}}{\sigma_{b} + \pi^{2}/3}}
-#' P_c: \deqn{ICC = \frac{P(Y_{ij} = 1, Y_{ih} = 1) - \pi_{j}\pi_{h}}{\sqrt{\pi_{j}(1 - \pi_{j})\pi_{h}(1 - \pi_{h})}}}
-#' P_lmer: \deqn{ICC = \frac{\sigma_{b}}{\sigma_{b} + \sigma_{w}}}
+#' The following equations are used to estimate intra-cluster correlation coefficients:
+#' 
+#' P_h: \mjsdeqn{ICC = \frac{\sigma_{b}}{\sigma_{b} + \pi^{2}/3}}
+#' P_c: \mjsdeqn{ICC = \frac{P(Y_{ij} = 1, Y_{ih} = 1) - \pi_{j}\pi_{h}}{\sqrt{\pi_{j}(1 - \pi_{j})\pi_{h}(1 - \pi_{h})}}}
+#' P_lmer: \mjsdeqn{ICC = \frac{\sigma_{b}}{\sigma_{b} + \sigma_{w}}}
 #' 
 #' @param nsim Number of datasets to simulate; accepts integer (required).
 #' 
@@ -26,34 +30,47 @@
 #' 
 #' @param nclusters Number of clusters per arm; accepts integer (required).
 #' 
-#' At least 2 of the following 3 arguments must be specified when using expected probabilities:
-#' @param p1 Expected probability of outcome in arm 1
-#' @param p2 Expected probability of outcome in arm 2
-#' @param p.diff Expected difference in probability of outcome between groups, defined as p.diff = p1 - p2
+#' @param p1t0 Required. Expected outcome proportion in arm 1 at baseline.
+#' Default is 0.
+#' @param p2t0 Optional. Expected outcome proportion in arm 2 at baseline. If 
+#' no quantity is provided, p2t0 = p1t0 is assumed.
+#' @param p1t1 Optional. Expected outcome proportion in arm 1 at follow-up. 
+#' If no quantity is provided, p1t1 = p1t0 is assumed.
+#' @param p2t1 Required. Expected outcome proportion in arm 2 at follow-up.
+#' @param p.diff Optional if p1t1 and p2t0 are provided. Expected difference 
+#' in outcome proportion between groups, defined as 
+#' p.diff = (p1t1 - p1t0) - (p2t1 - p2t0).
 #' 
-#' At least 2 of the following 3 arguments must be specified when using expected odds ratios:
+#' 
+#' At least 2 of the following 3 arguments must be specified when using 
+#' expected odds ratios:
 #' @param or1 Expected odds ratio for outcome in arm 1
 #' @param or2 Expected odds ratio for outcome in arm 2
-#' @param or.diff Expected difference in odds ratio for outcome between groups, defined as or.diff = or1 - or2
+#' @param or.diff Expected difference in odds ratio for outcome between groups, 
+#' defined as or.diff = or1 - or2.
 #' 
-#' @param sigma_b_sq0 Pre-treatment (time == 0) between-cluster variance; accepts numeric scalar 
-#' (indicating equal between-cluster variances for both arms) or a vector of length 2 specifying 
-#' treatment-specific between-cluster variances
+#' @param sigma_b_sq0 Pre-treatment (time == 0) between-cluster variance; 
+#' accepts numeric scalar (indicating equal between-cluster variances for 
+#' both arms) or a vector of length 2 specifying treatment-specific 
+#' between-cluster variances.
 #' 
-#' @param sigma_b_sq1 Post-treatment (time == 1) between-cluster variance; accepts numeric scalar 
-#' (indicating equal between-cluster variances for both arms) or a vector of length 2 specifying 
-#' treatment-specific between-cluster variances. For data simulation, sigma_b_sq1 is added to 
-#' sigma_b_sq0, such that if sigma_b_sq0 = 5 and sigma_b_sq1 = 2, the between-cluster variance at 
-#' time == 1 equals 7. Default = 0.
+#' @param sigma_b_sq1 Post-treatment (time == 1) between-cluster variance; 
+#' accepts numeric scalar (indicating equal between-cluster variances for 
+#' both arms) or a vector of length 2 specifying treatment-specific 
+#' between-cluster variances. If not provided by the user, 
+#' sigma_b_sq1 = sigma_b_sq0.
 #' 
 #' @param alpha Significance level. Default = 0.05
 #' 
-#' @param method Analytical method, either Generalized Linear Mixed Effects Model (GLMM) or 
-#' Generalized Estimating Equation (GEE). Accepts c('glmm', 'gee') (required); default = 'glmm'.
+#' @param method Analytical method, either Generalized Linear Mixed 
+#' Effects Model (GLMM) or Generalized Estimating Equation (GEE). 
+#' Accepts c('glmm', 'gee') (required); default = 'glmm'.
 #' 
-#' @param quiet When set to FALSE, displays simulation start time and completion time. Default is TRUE.
+#' @param quiet When set to FALSE, displays simulation start time and 
+#' completion time. Default is TRUE.
 #' 
-#' @param allSimData Option to output list of all simulated datasets. Default = FALSE.
+#' @param allSimData Option to output list of all simulated datasets. 
+#' Default = FALSE.
 #' 
 #' @param poorFitOverride Option to override \code{stop()} if more than 25\%
 #' of fits fail to converge; default = FALSE.
@@ -64,11 +81,11 @@
 #' stop message. Default = FALSE. When TRUE, this check is ignored and the
 #' calculated power is returned regardless of value.
 #' 
-#' @param timelimitOverride Logical. When FALSE, stops execution if the estimated completion time
-#' is more than 2 minutes. Defaults to TRUE.
+#' @param timelimitOverride Logical. When FALSE, stops execution if the 
+#' estimated completion time is more than 2 minutes. Defaults to TRUE.
 #' 
-#' @param nofit Option to skip model fitting and analysis and only return the simulated data.
-#' Default = \code{FALSE}.
+#' @param nofit Option to skip model fitting and analysis and only return 
+#' the simulated data. Default = \code{FALSE}.
 #' 
 #' @param seed Option to set the seed. Default is NA.
 #'  
@@ -104,7 +121,8 @@
 #'                   "clust" (Indicator for cluster), 
 #'                   "period" (Indicator for time point)
 #'   \item List of warning messages produced by non-convergent models. 
-#'                       Includes model number for cross-referencing against \code{model.estimates}
+#'                       Includes model number for cross-referencing against 
+#'                       \code{model.estimates}
 #' }
 #' If \code{nofit = T}, a data frame of the simulated data sets, containing:
 #' \itemize{
@@ -123,7 +141,9 @@
 #' 
 #' \dontrun{
 #' did.binary.sim = cps.did.binary(nsim = 100, nsubjects = 20, nclusters = 10, 
-#'                                 p1 = 0.2, p2 = 0.45, sigma_b_sq0 = 1, alpha = 0.05,
+#'                                 p1t0 = 0.1, p2t0 = 0.1,  
+#'                                 p1t1 = 0.2, p2t1 = 0.45, sigma_b_sq0 = 1, 
+#'                                 sigma_b_sq1 = 1, alpha = 0.05,
 #'                                 method = 'glmm', allSimData = FALSE, seed = 123)
 #' }
 #'
@@ -149,13 +169,15 @@ cps.did.binary = function(nsim = NULL,
                           nsubjects = NULL,
                           nclusters = NULL,
                           p.diff = NULL,
-                          p1 = NULL,
-                          p2 = NULL,
+                          p1t0 = 0,
+                          p2t0 = NULL,
+                          p1t1 = NULL,
+                          p2t1 = NULL,
                           or1 = NULL,
                           or2 = NULL,
                           or.diff = NULL,
                           sigma_b_sq0 = NULL,
-                          sigma_b_sq1 = 0,
+                          sigma_b_sq1 = NULL,
                           alpha = 0.05,
                           method = 'glmm',
                           quiet = TRUE,
@@ -176,7 +198,7 @@ cps.did.binary = function(nsim = NULL,
   pval.vector = vector("numeric", length = nsim)
   converge = vector("logical", length = nsim)
   icc2.vector = vector("numeric", length = nsim)
-  lmer.icc.vector = NULL
+  lmer.icc.vector = vector("numeric", length = nsim)
   values.vector = cbind(c(0, 0, 0, 0))
   simulated.datasets = list()
   
@@ -241,8 +263,8 @@ cps.did.binary = function(nsim = NULL,
     )
   }
   
-  # Validate P1, P2, P.DIFF & OR1, OR2, OR.DIFF
-  parm1.arg.list = list(p1, p2, p.diff)
+  # Validate p1t0, p2t1, P.DIFF & OR1, OR2, OR.DIFF
+  parm1.arg.list = list(p1t0, p2t1, p.diff)
   parm1.args = unlist(lapply(parm1.arg.list, is.null))
   parm2.arg.list = list(or1, or2, or.diff)
   parm2.args = unlist(lapply(parm2.arg.list, is.null))
@@ -252,29 +274,30 @@ cps.did.binary = function(nsim = NULL,
     )
   }
   if (sum(parm2.args) == 3 && sum(parm1.args) > 1) {
-    stop("At least two of the following terms must be specified: P1, P2, P.DIFF")
+    stop("At least two of the following terms must be specified: p1t0, p2t1, P.DIFF")
   }
   if (sum(parm1.args) == 3 && sum(parm2.args) > 1) {
     stop("At least two of the following terms must be specified: OR1, OR2, OR.DIFF")
   }
-  if (sum(parm1.args) == 0 && p.diff != abs(p1 - p2)) {
-    stop("At least one of the following terms has been misspecified: P1, P2, P.DIFF")
+  if (sum(parm1.args) == 0 && p.diff != abs(p1t0 - p2t1)) {
+    stop("At least one of the following terms has been misspecified: p1t0, p2t1, P.DIFF")
   }
   if (sum(parm2.args) == 0 && or.diff != abs(or1 - or2)) {
     stop("At least one of the following terms has been misspecified: OR1, OR2, OR.DIFF")
   }
   # Calculate any probabilities/odds ratios not specified by user
   if (sum(parm2.args) == 3) {
-    if (is.null(p1)) {
-      p1 = abs(p.diff - p2)
+    if (is.null(p1t0)) {
+      p1t0 = abs(p.diff - p2t1)
     }
-    if (is.null(p2)) {
-      p2 = abs(p1 - p.diff)
+    if (is.null(p2t1)) {
+      p2t1 = abs(p1t0 - p.diff)
     }
     if (is.null(p.diff)) {
-      p.diff = abs(p1 - p2)
+      p.diff = abs((p1t1 - p1t0) - (p2t1 - p2t0))
     }
   }
+
   if (sum(parm1.args) == 3) {
     if (is.null(or1)) {
       or1 = abs(or.diff - or2)
@@ -285,9 +308,21 @@ cps.did.binary = function(nsim = NULL,
     if (is.null(or.diff)) {
       or.diff = or1 - or2
     }
-    p1 = or1 / (1 + or1)
-    p2 = or2 / (1 + or2)
-    p.diff = abs(p1 - p2)
+    p1t0 = or1 / (1 + or1)
+    p2t1 = or2 / (1 + or2)
+    p.diff = abs(p1t0 - p2t1)
+  }
+  
+  if (is.null(p1t1)) {
+    p1t1 = p1t0
+  }
+  if (is.null(p2t0)) {
+    p2t0 = p1t0
+  }
+  
+  # if sigma_b_sq1 isn't specified, assume equal to sigma_b_sq0
+  if (is.null(sigma_b_sq1)) {
+    sigma_b_sq1 <- sigma_b_sq0
   }
   
   # Validate sigma_b_sq0 & sigma_b_sq1
@@ -312,7 +347,6 @@ cps.did.binary = function(nsim = NULL,
   if (length(sigma_b_sq1) == 1) {
     sigma_b_sq1[2] = sigma_b_sq1
   }
-  sigma_b_sq1 = sigma_b_sq1 + sigma_b_sq0
   
   # Validate ALPHA, METHOD, QUIET, allSimData
   if (!is.numeric(alpha) || alpha < 0 || alpha > 1) {
@@ -349,8 +383,10 @@ cps.did.binary = function(nsim = NULL,
     rep(x, length.out = nsubjects[x])))
   
   # Calculate log odds for each group
-  logit.p1 = log(p1 / (1 - p1))
-  logit.p2 = log(p2 / (1 - p2))
+  logit.p1t0 = log(p1t0 / (1 - p1t0))
+  logit.p2t0 = log(p2t0 / (1 - p2t0))
+  logit.p1t1 = log(p1t1 / (1 - p1t1))
+  logit.p2t1 = log(p2t1 / (1 - p2t1))
   
   # Set warnings to OFF
   options(warn = -1)
@@ -367,7 +403,7 @@ cps.did.binary = function(nsim = NULL,
     # Create arm 1 y-value
     y0.ntrt.intercept = unlist(lapply(1:nclusters[1], function(x)
       rep(randint.ntrt.0[x], length.out = nsubjects[x])))
-    y0.ntrt.linpred = y0.ntrt.intercept + logit.p1
+    y0.ntrt.linpred = y0.ntrt.intercept + logit.p1t0
     y0.ntrt.prob = expit(y0.ntrt.linpred)
     y0.ntrt = unlist(lapply(y0.ntrt.prob, function(x)
       stats::rbinom(1, 1, x)))
@@ -375,7 +411,7 @@ cps.did.binary = function(nsim = NULL,
     # Create arm 2 y-value
     y0.trt.intercept = unlist(lapply(1:nclusters[1], function(x)
       rep(randint.trt.0[x], length.out = nsubjects[nclusters[1] + x])))
-    y0.trt.linpred = y0.trt.intercept + logit.p1
+    y0.trt.linpred = y0.trt.intercept + logit.p2t0
     y0.trt.prob = expit(y0.trt.linpred)
     y0.trt = unlist(lapply(y0.trt.prob, function(x)
       stats::rbinom(1, 1, x)))
@@ -388,7 +424,7 @@ cps.did.binary = function(nsim = NULL,
     # Create arm 1 y-value
     y1.ntrt.intercept = unlist(lapply(1:nclusters[1], function(x)
       rep(randint.ntrt.1[x], length.out = nsubjects[x])))
-    y1.ntrt.linpred = y1.ntrt.intercept + logit.p1
+    y1.ntrt.linpred = y1.ntrt.intercept + logit.p1t1
     y1.ntrt.prob = expit(y1.ntrt.linpred)
     y1.ntrt = unlist(lapply(y1.ntrt.prob, function(x)
       stats::rbinom(1, 1, x)))
@@ -396,7 +432,7 @@ cps.did.binary = function(nsim = NULL,
     # Create arm 2 y-value
     y1.trt.intercept = unlist(lapply(1:nclusters[1], function(x)
       rep(randint.trt.1[x], length.out = nsubjects[nclusters[1] + x])))
-    y1.trt.linpred = y1.trt.intercept + logit.p2
+    y1.trt.linpred = y1.trt.intercept + logit.p2t1
     y1.trt.prob = expit(y1.trt.linpred)
     y1.trt = unlist(lapply(y1.trt.prob, function(x)
       stats::rbinom(1, 1, x)))
@@ -412,7 +448,7 @@ cps.did.binary = function(nsim = NULL,
       clust = as.factor(clust)
     )
     if (allSimData == TRUE) {
-      simulated.datasets = append(simulated.datasets, list(sim.dat))
+      simulated.datasets[[i]] = list(sim.dat)
     }
     
     # option to return simulated data only
@@ -443,15 +479,20 @@ cps.did.binary = function(nsim = NULL,
     values.vector = values.vector + iter.values
     
     # Calculate ICC2 ([P(Yij = 1, Yih = 1)] - pij * pih) / sqrt(pij(1 - pij) * pih(1 - pih))
-    #icc2 = (mean(y0.prob) * mean(y1.prob) - p1*p2) / sqrt((p1 * (1 - p1)) * p2 * (1 - p2))
-    icc2 = (mean(c(mean(y0.ntrt), mean(y1.ntrt))) - p1) * (mean(c(mean(y0.trt), mean(y1.trt))) - p2) / sqrt((p1 * (1 - p1)) * p2 * (1 - p2))
-    icc2.vector = append(icc2.vector, icc2)
+    icc2 = (mean(c(mean(y0.ntrt), mean(y1.ntrt))) - p1t1) * 
+      (mean(c(mean(y0.trt), mean(y1.trt))) - p2t1) / 
+      sqrt((p1t1 * (1 - p1t1)) * p2t1 * (1 - p2t1))
+    icc2.vector[i] = icc2
     
     # Calculate LMER.ICC (lmer: sigma_b_sq / (sigma_b_sq + sigma))
     lmer.mod = lme4::lmer(y ~ trt + period + trt:period + (1 |
                                                              clust), data = sim.dat)
     lmer.vcov = as.data.frame(lme4::VarCorr(lmer.mod))[, 4]
-    lmer.icc.vector =  append(lmer.icc.vector, lmer.vcov[1] / (lmer.vcov[1] + lmer.vcov[2]))
+    lmer.icc.vector[i] =  lmer.vcov[1] / (lmer.vcov[1] + lmer.vcov[2])
+    
+    # Set warnings to OFF
+    # Note: Warnings will still be stored in 'warning.list'
+    options(warn = -1)
     
     # Fit GLMM (lmer)
     if (method == 'glmm') {
@@ -468,6 +509,10 @@ cps.did.binary = function(nsim = NULL,
       pval.vector[i] = glmm.values['trt2:period1', 'Pr(>|z|)']
       converge[i] = is.null(my.mod@optinfo$conv$lme4$messages)
     }
+    
+    # Set warnings to ON
+    options(warn = 0)
+    
     # Fit GEE (geeglm)
     if (method == 'gee') {
       sim.dat = dplyr::arrange(sim.dat, clust)
@@ -487,7 +532,7 @@ cps.did.binary = function(nsim = NULL,
     }
     
     # option to stop the function early if fits are singular
-    if (poorFitOverride == FALSE && converge[i] == FALSE) {
+    if (poorFitOverride == FALSE && converge[i] == FALSE && i > 50) {
       if (sum(converge == FALSE, na.rm = TRUE) > (nsim * .25)) {
         stop(
           "more than 25% of simulations are singular fit: check model specifications"
@@ -518,7 +563,7 @@ cps.did.binary = function(nsim = NULL,
         avg.iter.time = as.numeric(difftime(Sys.time(), start.time, units = 'secs'))
         time.est = avg.iter.time * (nsim - 1) / 60
         hr.est = time.est %/% 60
-        min.est = round(time.est %% 60, 0)
+        min.est = round(time.est %% 60, 3)
         if (min.est > 2 && timelimitOverride == FALSE){
           stop(paste0("Estimated completion time: ",
                       hr.est,
@@ -575,15 +620,16 @@ cps.did.binary = function(nsim = NULL,
   # Calculate and store power estimate & confidence intervals
   # pval.data = subset(cps.model.est, converge == TRUE)
   cps.model.temp <- dplyr::filter(cps.model.est, converge == TRUE)
-  power.parms <- confintCalc(alpha = alpha,
+  power.parms <- confintCalc(nsim = nsim,
+                             alpha = alpha,
                              p.val = cps.model.temp[, 'p.value'])
-  
+
   # Create object containing inputs
-  p1.p2.or = round(p1 / (1 - p1) / (p2 / (1 - p2)), 3)
-  p2.p1.or = round(p2 / (1 - p2) / (p1 / (1 - p1)), 3)
+  p1.p2.or = round(p1t1 / (1 - p1t1) / (p2t1 / (1 - p2t1)), 3)
+  p2.p1.or = round(p2t1 / (1 - p2t1) / (p1t1 / (1 - p1t1)), 3)
   inputs = t(data.frame(
-    'Arm.1' = c("probability" = p1, "odds.ratio" = p1.p2.or),
-    'Arm.2' = c("probability" = p2, 'odds.ratio' = p2.p1.or),
+    'Arm.1' = c("probability" = p1t1, "odds.ratio" = p1.p2.or),
+    'Arm.2' = c("probability" = p2t1, 'odds.ratio' = p2.p1.or),
     'Difference' = c(
       "probability" = p.diff,
       'odds.ratio' = p2.p1.or - p1.p2.or
@@ -616,6 +662,7 @@ cps.did.binary = function(nsim = NULL,
     'lmer' = c('ICC' = mean(lmer.icc.vector))
   )), 3)
   # Create object containing all ICC values
+  # Note: P_h is a single calculated value. No vector to be appended.
   icc.list = data.frame('P_c' = icc2.vector,
                         'lmer' = lmer.icc.vector)
   

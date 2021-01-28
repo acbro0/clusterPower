@@ -46,11 +46,12 @@ The computed value of the NA parameter (among \code{alpha}, \code{power}, \code{
 sample size equation.
 }
 \description{
+\loadmathjax
+
 Compute the power, number of clusters needed, number of subjects per cluster 
 needed, or other key parameters for a simple parallel cluster randomized 
 trial with a count outcome.
-}
-\details{
+
 Exactly one of \code{alpha}, \code{power}, \code{nclusters}, \code{nsubjects},
   \code{r1}, \code{r2}, and \code{CVB} must be passed as \code{NA}.
   Note that \code{alpha} and \code{power} have non-\code{NA}
@@ -87,7 +88,7 @@ Jonathan Moyer (\email{jon.moyer@gmail.com}), Ken Kleinman (\email{ken.kleinman@
   errors from it, notably about inability to bracket the root when
   invalid arguments are given.  This generally means that no solution exists for which the 
   omitted parameter and the supplied parameters fulfill the equation.  In particular, the desired
-  power may not be acheiveable with any number of subjects or clusters.
+  power may not be achievable with any number of subjects or clusters.
 }
 
 \section{Testing details}{

@@ -1,5 +1,5 @@
 #' Updates the Shiny app options if the function arguments change
-#'
+#' @noRd
 #'
 #' @author Alexandria C. Sakrejda (\email{acbro0@@umass.edu}
 #'
@@ -8,12 +8,8 @@
 #' @param justNames Logical. Default is FALSE. Should only argument names be returned
 #'
 #' @return List of numericInput expressions.
-#' @export
-
-
 
 argMatch <- function(fxnName, justNames = FALSE) {
-  require("clusterPower")
   
   # The arguments from which to choose
   nsim <-
@@ -82,21 +78,15 @@ argMatch <- function(fxnName, justNames = FALSE) {
     numericInput(
       "sigma_b_sq2",
       "Between-cluster variance (Arm 2)",
-      value = 0,
-      min = 0
-    )
-  
-  sigma_b_sq2 <-
-    numericInput(
-      "sigma_b_sq2",
-      "Between-cluster variance (Arm 2)",
       value = 0.1,
       min = 0
     )
   
   CV <-
     numericInput("CV", "Coefficient of variation (CV)", value = 0)
+  
   d <- numericInput("d", "Means difference", value = 1)
+  
   rho_c <-
     numericInput("rho_c",
                  "Baseline and post-test cluster-level correlation",
@@ -127,25 +117,15 @@ argMatch <- function(fxnName, justNames = FALSE) {
       value = 0,
       min = 0
     )
-  if (fxnName == "cps.binary") {
-    ICC <-
-      numericInput(
-        "ICC",
-        "Intracluster correlation coefficient (ICC)",
-        value = 0.05,
-        min = 0,
-        max = 1
-      )
-  } else {
     ICC <-
       numericInput(
         "ICC",
         "Intracluster correlation coefficient (ICC)",
         value = NA,
+        step = 0.01,
         min = 0,
         max = 1
       )
-  }
   vart <-
     numericInput("vart", "Total variation of the outcome", value = NA)
   ncontrols <-
@@ -213,7 +193,7 @@ argMatch <- function(fxnName, justNames = FALSE) {
   p1inc <- checkboxInput("p1inc", "p1 > p2", value = FALSE)
   multi_p_method <-
     selectInput(
-      "multi.p.method",
+      "multi_p_method",
       "Multiple comparisons adjustment",
       choices = c(
         "holm",

@@ -73,7 +73,7 @@
 #' 
 #' @param seed Option to set the seed. Default, NA, selects a seed based on the system clock.
 #' 
-#' @param irgtt Logical. Is the experimental design an individually randomized 
+#' @param irgtt Logical. Default = FALSE. Is the experimental design an individually randomized 
 #' group treatment trial? For details, see ?cps.irgtt.normal.
 #' 
 #' @param poorFitOverride Option to override \code{stop()} if more than 25\% 
@@ -140,7 +140,7 @@
 #' \mjseqn{b_i \sim N(0,\sigma_b^2)} 
 #' and \mjseqn{y_{ij} \sim N(\mu_2 + b_i, \sigma^2)} .
 #' 
-#' All random terms are generated indepedent of one another.
+#' All random terms are generated independent of one another.
 #' 
 #' 
 #' For calls without \mjseqn{\sigma_2^2, \sigma_{b_2}^2} or \code{ICC2}, and using
@@ -207,15 +207,16 @@
 #' 
 #' # The resulting estimated power (if you set seed = 1) should be about 0.76.
 #' 
-#' # Estimate power for a trial with 3 clusters in one arm, those clusters having 25, 35, and 45 subjects 
-#' # each, and 10 clusters in the other arm, those clusters having 5 subjects each, the first arm
+#' # Estimate power for a trial with 3 clusters in one arm, 
+#' # those clusters having 25, 35, and 45 subjects each, and 10 clusters 
+#' # in the other arm, those clusters having 5 subjects each, the first arm
 #' # having a sigma squared of 20 and sigma_b squared of 8.57143, and the second a sigma squared
 #' # of 9 and a sigma_b squared of 1, with estimated arm means of 1 and 4.75 in the first and 
 #' # second groups, respectively, using 100 simulated data sets analyzed by the GLMM method.
 #' 
 #' \dontrun{
 #' 
-#' normal.sim2 = cps.normal(nsim = 100, nclusters = c(3,10), 
+#' normal.sim2 <- cps.normal(nsim = 100, nclusters = c(3,10), 
 #'   nsubjects = c(25, 35, 45, rep(5, times = 10)),
 #'   mu = 1, mu2 = 4.75, sigma_sq = 20, sigma_b_sq = 8.8571429,
 #'   sigma_sq2 = 9, sigma_b_sq2 = 1, method = "glmm")
@@ -254,6 +255,7 @@ cps.normal = function(nsim = NA,
                       lowPowerOverride = FALSE,
                       irgtt = FALSE,
                       nofit = FALSE) {
+  converge <- NULL
   # option for reproducibility
   if (!is.na(seed)) {
     set.seed(seed = seed)
@@ -291,7 +293,7 @@ cps.normal = function(nsim = NA,
   if (!is.wholenumber(nclusters) || nclusters < 1) {
     stop(paste0("NCLUSTERS", min1.warning))
   }
-  if (is.list(nsubjects)){
+  if (is.list(nsubjects)) {
     temp <- unlist(nsubjects)
   } else {
     temp <- nsubjects
@@ -518,7 +520,7 @@ cps.normal = function(nsim = NA,
               control = nlme::lmeControl(opt = 'optim')
             ),
             silent = TRUE)
-
+          
           pval.vector[i] = glmm.values['as.factor(trt2)2', 'p-value']
           est.vector[i] = glmm.values['as.factor(trt2)2', 'Value']
           se.vector[i] = glmm.values['as.factor(trt2)2', 'Std.Error']
@@ -566,7 +568,7 @@ cps.normal = function(nsim = NA,
           my.mod <-
             try(nlme::lme(
               y ~ as.factor(trt2),
-              random =  ~ 1 + as.factor(trt2) | clust2,
+              random =  ~ 0 + as.factor(trt2) | clust2,
               weights = nlme::varIdent(form =  ~ 1 |
                                          as.factor(trt2)),
               method = "ML",
@@ -579,7 +581,7 @@ cps.normal = function(nsim = NA,
             null.mod <-
               try(nlme::lme(
                 y ~ 1,
-                random =  ~ 1 + as.factor(trt2) | clust2,
+                random =  ~ 0 + as.factor(trt2) | clust2,
                 weights = nlme::varIdent(form =  ~ 1 |
                                            as.factor(trt2)),
                 method = "ML",
@@ -587,10 +589,10 @@ cps.normal = function(nsim = NA,
               ),
               silent = TRUE)
             options(warn = oldw)
-            pval.vector[i] = glmm.values['as.factor(trt2)1', 'p-value']
-            est.vector[i] = glmm.values['as.factor(trt2)1', 'Value']
-            se.vector[i] = glmm.values['as.factor(trt2)1', 'Std.Error']
-            stat.vector[i] = glmm.values['as.factor(trt2)1', 't-value']
+            pval.vector[i] = glmm.values['as.factor(trt2)2', 'p-value']
+            est.vector[i] = glmm.values['as.factor(trt2)2', 'Value']
+            se.vector[i] = glmm.values['as.factor(trt2)2', 'Std.Error']
+            stat.vector[i] = glmm.values['as.factor(trt2)2', 't-value']
           }
           converge.vector[i] <-
             ifelse(isTRUE(class(my.mod) == "try-error"), FALSE, TRUE)
@@ -598,12 +600,12 @@ cps.normal = function(nsim = NA,
         
         if (sigma_sq == sigma_sq2 && sigma_b_sq != sigma_b_sq2) {
           my.mod <-
-            lmerTest::lmer(y ~ trt + (1 + as.factor(trt) | clust),
+            lmerTest::lmer(y ~ trt + (0 + as.factor(trt) | clust),
                            REML = FALSE,
                            data = sim.dat)
           # get the overall p-values (>Chisq)
           null.mod <-
-            stats::update.formula(my.mod, y ~ 1 + (1 + as.factor(trt) |
+            stats::update.formula(my.mod, y ~ 1 + (0 + as.factor(trt) |
                                                      clust))
           glmm.values = summary(my.mod)$coefficients
           pval.vector[i] = glmm.values['trt', 'Pr(>|t|)']
@@ -652,10 +654,10 @@ cps.normal = function(nsim = NA,
             ),
             silent = TRUE)
           options(warn = oldw)
-          pval.vector[i] = glmm.values['as.factor(trt2)1', 'p-value']
-          est.vector[i] = glmm.values['as.factor(trt2)1', 'Value']
-          se.vector[i] = glmm.values['as.factor(trt2)1', 'Std.Error']
-          stat.vector[i] = glmm.values['as.factor(trt2)1', 't-value']
+          pval.vector[i] = glmm.values['as.factor(trt2)2', 'p-value']
+          est.vector[i] = glmm.values['as.factor(trt2)2', 'Value']
+          se.vector[i] = glmm.values['as.factor(trt2)2', 'Std.Error']
+          stat.vector[i] = glmm.values['as.factor(trt2)2', 't-value']
           converge.vector[i] <-
             ifelse(isTRUE(class(my.mod) == "try-error"), FALSE, TRUE)
         }
@@ -725,7 +727,7 @@ cps.normal = function(nsim = NA,
         avg.iter.time = as.numeric(difftime(Sys.time(), start.time, units = 'secs'))
         time.est = avg.iter.time * (nsim - 1) / 60
         hr.est = time.est %/% 60
-        min.est = round(time.est %% 60, 0)
+        min.est = round(time.est %% 60, 3)
         if (min.est > 2 && timelimitOverride == FALSE){
           stop(paste0("Estimated completion time: ",
             hr.est,
@@ -755,7 +757,7 @@ cps.normal = function(nsim = NA,
         total.est = as.numeric(difftime(Sys.time(), start.time, units = 'secs'))
         hr.est = total.est %/% 3600
         min.est = total.est %/% 60
-        sec.est = round(total.est %% 60, 0)
+        sec.est = round(total.est %% 60, 3)
         message(
           paste0(
             "Simulations Complete! Time Completed: ",
@@ -804,6 +806,7 @@ cps.normal = function(nsim = NA,
   # Calculate and store power estimate & confidence intervals
   cps.model.temp <- dplyr::filter(cps.model.est, converge == TRUE)
   power.parms <- confintCalc(alpha = alpha,
+                             nsim = nsim,
                               p.val = cps.model.temp[, 'p.value'])
   
   # Create object containing group-specific cluster sizes
